@@ -1,0 +1,8 @@
+{
+    "calendarUrl":"https://www.airbnb.com/calendar/ical/xxxxxxx.ics?s=xxxxxxx",
+    "arrivalScheduleTime":"12:01 AM",
+    "departureScheduleTime":"6:00 PM",
+    "timezone":"America/Los_Angeles",
+    "checkInRoutineUrl": "https://graph-na04-useast2.api.smartthings.com/xxxxxx",
+    "checkOutRoutineUrl:": "https://graph-na04-useast2.api.smartthings.com/xxxxxx"
+}
