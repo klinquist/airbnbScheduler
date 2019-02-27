@@ -58,9 +58,15 @@ const convertStrToCron = (str) => {
 
 const getiCalEvents = (cb) => {
     const events = [];
-    log('Getting events');
+    let retryCount = 0;
     // I've had errors with AirBnb's iCal not returning any events.  If this happens, I retry.
-    async.retry({ times: 5, interval: 10000 }, () => {
+    async.retry({ times: 6, interval: 30000 }, (cb) => {
+        retryCount++;
+        if (retryCount == 1) {
+            log('Getting events..');
+        } else  {
+            log('Getting events (retrying)..');
+        }
         ical.fromURL(config.get('calendarUrl'), {}, (err, data) => {
             if (err) return cb(err);
             if (!data || Object.keys(data) == 0) {
