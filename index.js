@@ -60,11 +60,11 @@ const getiCalEvents = (cb) => {
     const events = [];
     let retryCount = 0;
     // I've had errors with AirBnb's iCal not returning any events.  If this happens, I retry.
-    async.retry({ times: 6, interval: 30000 }, (cb) => {
+    async.retry({ times: 30, interval: 10000 }, (cb) => {
         retryCount++;
         if (retryCount == 1) {
             log('Getting events..');
-        } else  {
+        } else {
             log('Getting events (retrying)..');
         }
         ical.fromURL(config.get('calendarUrl'), {}, (err, data) => {
@@ -83,9 +83,7 @@ const getiCalEvents = (cb) => {
             log(`Found ${events.length} events`);
             return cb(null, events);
         });
-    }), (err, result) => {
-        cb(err, result);
-    };
+    }, cb);
 };
 
 
