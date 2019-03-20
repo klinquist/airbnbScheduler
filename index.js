@@ -97,7 +97,7 @@ new CronJob(convertStrToCron(config.get('arrivalScheduleTime')), () => {
         } else {
             let runCheckin = false;
             events.forEach((event)=>{
-                const daysDiff = moment(event.start).diff(moment(), 'days');
+                const daysDiff = moment(event.start).diff(moment().startOf('day'), 'days');
                 if (daysDiff == 0) {
                     runCheckin = true;
                     log(`${event.summary} is checking in today!`);
@@ -124,7 +124,7 @@ new CronJob(convertStrToCron(config.get('departureScheduleTime')), () => {
         } else {
             let runCheckOut = false;
             events.forEach((event) =>{
-                const daysDiff = moment(event.end).diff(moment(), 'days');
+                const daysDiff = moment(event.end).diff(moment().startOf('day'), 'days');
                 if (daysDiff == 0) {
                     log(`${event.summary} is checking out today!`);
                     runCheckOut = true;
