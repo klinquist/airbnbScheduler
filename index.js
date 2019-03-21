@@ -41,8 +41,8 @@ const log = (logMsg) => {
 
 const convertStrToCron = (str) => {
     str = str.replace(/\s/g, '').toUpperCase();
-    const match = str.match(/(\d+):(\d+)(A|P)/);
-    if (!match || !match[1] || !match[2] || !match[3]) throw new Error(`Could not convert time to cron format: ${str}`);
+    const match = str.match(/(\d+):(\d+)(A|P)?/);
+    if (!match || !match[1] || !match[2]) throw new Error(`Could not convert time to cron format: ${str}`);
     let hr;
     if (match[3] == 'A' && Number(match[1]) == 12) {
         hr = 0;
@@ -88,7 +88,7 @@ const getiCalEvents = (cb) => {
 
 
 
-log(`Setting cron job for ${config.get('arrivalScheduleTime')}: ${convertStrToCron(config.get('arrivalScheduleTime'))}`);
+log(`Setting up schedule for arrival check: ${config.get('arrivalScheduleTime')} (cron pattern: ${convertStrToCron(config.get('arrivalScheduleTime'))}).`);
 new CronJob(convertStrToCron(config.get('arrivalScheduleTime')), () => {
     getiCalEvents((err, events) => {
         if (err) log('Error getting events from iCal: ' + err);
@@ -115,7 +115,7 @@ new CronJob(convertStrToCron(config.get('arrivalScheduleTime')), () => {
 }, null, true, config.get('timezone'));
 
 
-log(`Setting cron job for ${config.get('departureScheduleTime')}: ${convertStrToCron(config.get('departureScheduleTime'))}`);
+log(`Setting up schedule for departure check: ${config.get('departureScheduleTime')} (cron pattern: ${convertStrToCron(config.get('departureScheduleTime'))}).`);
 new CronJob(convertStrToCron(config.get('departureScheduleTime')), () => {
     getiCalEvents((err, events) => {
         if (err) log('Error getting events from iCal: ' + err);
