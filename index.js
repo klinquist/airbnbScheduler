@@ -1,8 +1,3 @@
-
-
-
-
-
 const ical = require('ical'),
     CronJob = require('cron').CronJob,
     async = require('async'),
@@ -102,7 +97,11 @@ new CronJob(convertStrToCron(config.get('arrivalScheduleTime')), () => {
                     runCheckin = true;
                     log(`${event.summary} is checking in today!`);
                 } else {
-                    log(`Skipping - check in for ${event.summary} is ${daysDiff} days away.`);
+                    if (daysDiff < 0) {
+                        log(`Skipping - check in for ${event.summary} is in the past.`);
+                    } else {
+                        log(`Skipping - check in for ${event.summary} is ${daysDiff} days away.`);
+                    }
                 }
             });
             if (runCheckin) {
@@ -129,7 +128,11 @@ new CronJob(convertStrToCron(config.get('departureScheduleTime')), () => {
                     log(`${event.summary} is checking out today!`);
                     runCheckOut = true;
                 } else {
-                    log(`Skipping - check out for ${event.summary} is ${daysDiff} days away.`);
+                    if (daysDiff < 0) {
+                        log(`Skipping - check out for ${event.summary} is in the past.`);
+                    } else {
+                        log(`Skipping - check out for ${event.summary} is ${daysDiff} days away.`);
+                    }
                 }
             });
             if (runCheckOut) {
