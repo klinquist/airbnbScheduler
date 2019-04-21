@@ -93,14 +93,16 @@ new CronJob(convertStrToCron(config.get('arrivalScheduleTime')), () => {
             let runCheckin = false;
             events.forEach((event)=>{
                 const daysDiff = moment(event.start).diff(moment().startOf('day'), 'days');
-                if (daysDiff == 0) {
-                    runCheckin = true;
-                    log(`${event.summary} is checking in today!`);
-                } else {
-                    if (daysDiff < 0) {
-                        log(`Skipping - check in for ${event.summary} is in the past.`);
+                if (event.summary !== 'Airbnb (Not available)') {
+                    if (daysDiff == 0) {
+                        runCheckin = true;
+                        log(`${event.summary} is checking in today!`);
                     } else {
-                        log(`Skipping - check in for ${event.summary} is ${daysDiff} days away.`);
+                        if (daysDiff < 0) {
+                            log(`Skipping - check in for ${event.summary} is in the past.`);
+                        } else {
+                            log(`Skipping - check in for ${event.summary} is ${daysDiff} days away.`);
+                        }
                     }
                 }
             });
@@ -123,15 +125,17 @@ new CronJob(convertStrToCron(config.get('departureScheduleTime')), () => {
         } else {
             let runCheckOut = false;
             events.forEach((event) =>{
-                const daysDiff = moment(event.end).diff(moment().startOf('day'), 'days');
-                if (daysDiff == 0) {
-                    log(`${event.summary} is checking out today!`);
-                    runCheckOut = true;
-                } else {
-                    if (daysDiff < 0) {
-                        log(`Skipping - check out for ${event.summary} is in the past.`);
+                if (event.summary !== 'Airbnb (Not available)') {
+                    const daysDiff = moment(event.end).diff(moment().startOf('day'), 'days');
+                    if (daysDiff == 0) {
+                        log(`${event.summary} is checking out today!`);
+                        runCheckOut = true;
                     } else {
-                        log(`Skipping - check out for ${event.summary} is ${daysDiff} days away.`);
+                        if (daysDiff < 0) {
+                            log(`Skipping - check out for ${event.summary} is in the past.`);
+                        } else {
+                            log(`Skipping - check out for ${event.summary} is ${daysDiff} days away.`);
+                        }
                     }
                 }
             });
