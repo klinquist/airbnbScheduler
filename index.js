@@ -26,26 +26,34 @@ const log = (logMsg) => {
 };
 
 const setMode = async (modeName) => {
-    let modes = await axios.get(getHubitatUrl('modes')).catch((err) => {
-        throw new Error(`Error getting modes: ${err}`)
-    })
+    let modes;
+    try {
+        modes = await axios.get(getHubitatUrl('modes'))
+    } catch (e) {
+        throw new Error(`Error getting modes: ${e}`)
+    }
+
     let mode = modes.data.find((n) => {
         n.name == modeName
     })
     if (!mode) throw new Error(`Could not find mode ${modeName}`)
-    await axios.get(getHubitatUrl(`modes/${mode.id}/activate`)).then(() => {
-        log(`Successfully set mode to ${modeName}`)
-    }).catch((err) => {
-        throw new Error(`Error setting mode: ${err}`)
-    })
 
+    try {
+        await axios.get(getHubitatUrl(`modes/${mode.id}`))
+    } catch (e) {   
+        throw new Error(`Error setting mode: ${err}`)
+    }
+    log(`Successfully set mode to ${modeName}`)
 }
 
 
 const setLockCode = async (phoneNumber, reservationNumber) => {
-    let locks = axios.get(getHubitatUrl('devices')).catch((err) => {
+    let locks;
+    try {
+        locks = axios.get(getHubitatUrl('devices'))
+    } catch {
         throw new Error(`Error getting list of devices`)
-    })
+    }
     locks = locks.data.filter((n) => {
         return locksToCode.includes(n.label)
     })
@@ -68,19 +76,27 @@ const setLockCode = async (phoneNumber, reservationNumber) => {
 
 
 const removeLockCode = async (phoneNumber, reservationNumber) => {
-    let locks = axios.get(getHubitatUrl('devices')).catch((err) => {
-        throw new Error(`Error getting list of devices`)
-    })
+
+    let locks;
+    try {
+        locks = axios.get(getHubitatUrl('devices'))
+    } catch (e) {
+        throw new Error(`Error getting list of devices ${e}`)
+    }
+
     locks = locks.data.filter((n) => {
         return locksToCode.includes(n.label)
     })
-    for await (const lock of locks) {
-        await axios.get(`devices/${lock.id}/deleteCode/${LOCK_CODE_SLOT}`).then(() => {
-            log(`Successfully removed code ${phoneNumber} on lock ${lock.name}`)
-        }).catch((err) => {
-            log(`Error removing code on lock ${lock.name}: ${err}`)
+
+    await Promise.all(
+        locks.map(async (lock) => {
+            await axios.get(`devices/${lock.id}/deleteCode/${lockCodeBody}`).then(() => {
+                log(`Successfully programmed code ${phoneNumber} on lock ${lock.name}`)
+            }).catch((err) => {
+                log(`Error setting code on lock ${lock.name}: ${err}`)
+            })
         })
-    }
+    )
 }
 
 
@@ -134,27 +150,38 @@ const getiCalEvents = async () => {
 
 
 const runCheckInActions = async (ph, reservationNumber) => {
-    await setLockCode(ph, reservationNumber, cb).catch((err) => {
-        throw new Error(err)
-    })
+
+    try {
+        await setLockCode(ph, reservationNumber, cb)
+    } catch (err) {
+        throw new Error(`Error setting lock code: ${err}`)
+    }
+    
     let mode = config.get('checkin_mode')
     if (mode) {
-        await setMode(mode).catch((err) => {
-            throw new Error(err)
-        })
+        try {
+            await setMode(mode)
+        } catch (e) {
+            throw new Error(`Error setting mode: ${err}`)
+        }
     }
 };
 
 
 const runCheckOutActions = async (ph, reservationNumber) => {
-    await removeLockCode(ph, reservationNumber, cb).catch((err) => {
-        throw new Error(err)
-    })
+
+    try {
+        await removeLockCode(ph, reservationNumber, cb)
+    } catch (err) {
+        throw new Error(`Error removing lock code: ${err}`)
+    }
     let mode = config.get('checkout_mode')
     if (mode) {
-        await setMode(mode).catch((err) => {
-            throw new Error(err)
-        })
+        try {
+            await setMode(mode)
+        } catch (e) {
+            throw new Error(`Error setting mode: ${err}`)
+        }
     }
 };
 
@@ -274,8 +301,10 @@ log('Setting up cron job to check calendar');
 
 
 (async function () {
-    schedule.scheduleJob(config.get('cron_schedule'), async () => {
-        await getSchedules();
-    });
-    await getSchedules();
+    // schedule.scheduleJob(config.get('cron_schedule'), async () => {
+    //     await getSchedules();
+    // });
+    // await getSchedules();
+
+    await setLockCode('1234', 'KRIS4')
 })()
