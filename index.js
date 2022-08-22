@@ -1,9 +1,12 @@
+const {
+    default: axios
+} = require('axios');
 const ical = require('ical'),
     async = require('async'),
         moment = require('moment-timezone'),
         config = require('config'),
         schedule = require('node-schedule'),
-        request = require('request')
+        request = require('axios')
 
 
 const LOCK_CODE_SLOT = config.get('lock_code_slot')
@@ -17,120 +20,71 @@ const getHubitatUrl = (path) => {
 }
 
 
-const setMode = (modeName, cb) => {
-    async.waterfall([
-            async.waterfall([
-                (cb) => {
-                    let requestObj = {
-                        method: 'GET',
-                        url: getHubitatUrl('modes'),
-                        json: true
-                    }
-                    request(requestObj, (err, res, body) => {
-                        if (err) return cb(`Error getting modes ${err}`)
-                        let mode = body.find((n) => { n.name == modeName })
-                        if (!mode) return cb(`Could not find mode ${modeName}`)
-                        return cb(null, mode)
-                    })
-                },
-                (mode, cb) => {
-                    
-                    let requestObj = {
-                        method: 'GET',
-                        url: getHubitatUrl(`modes/${mode.id}`),
-                        json: true
-                    }
-                    log(`Setting mode to ${mode.name}`)
-                    request(requestObj, (err, res, body) => {
-                        if (err) return cb(err)
-                        return cb()
-                    })
-                }
-            ], cb)
-    ])
-}
-
-
-
-const setLockCode = (phoneNumber, reservationNumber, cb) => {
-    async.waterfall([
-        (cb) => {
-            let requestObj = {
-                method: 'GET',
-                url: getHubitatUrl('devices'),
-                json: true
-            }
-            request(requestObj, (err, res, body) => {
-                if (err) return cb(`Error getting list of devices`)
-                let locks = body.filter((n) => {
-                    return locksToCode.includes(n.label)
-                })
-                return cb(null, locks)
-            })
-        },
-        (locks, cb) => {
-            let lockCodeBody = [
-                LOCK_CODE_SLOT,
-                phoneNumber,
-                reservationNumber
-            ].join(',')
-            async.eachSeries(locks, (lock, cb) => {
-                let requestObj = {
-                    method: 'GET',
-                    url: getHubitatUrl(`devices/${lock.id}/setCode/${lockCodeBody}`),
-                    json: true
-                }
-                log(`Setting code on lock ${lock.name}`)
-                request(requestObj, (err, res, body) => {
-                    console.log(body)
-                    return cb()
-                })
-            }, cb)
-        }
-    ], cb)
-}
-
-
-const removeLockCode = (phoneNumber, reservationNumber, cb) => {
-    async.waterfall([
-        (cb) => {
-            let requestObj = {
-                method: 'GET',
-                url: getHubitatUrl('devices'),
-                json: true
-            }
-            request(requestObj, (err, res, body) => {
-                if (err) return cb(`Error getting list of devices`)
-                let locks = body.filter((n) => {
-                    return locksToCode.includes(n.label)
-                })
-                return cb(null, locks)
-            })
-        },
-        (locks, cb) => {
-            async.eachSeries(locks, (lock, cb) => {
-                let requestObj = {
-                    method: 'GET',
-                    url: getHubitatUrl(`devices/${lock.id}/deleteCode/${LOCK_CODE_SLOT}`),
-                    json: true
-                }
-                log(`Deleting code ${phoneNumber} on lock ${lock.name}`)
-                request(requestObj, (err, res, body) => {
-                    if (err) return cb(`Error removing code ${phoneNumber} from ${lock.name}`)
-                    return cb()
-                })
-            }, cb)
-        }
-    ], cb)
-}
-
-const schedules = {};
-
-
 const log = (logMsg) => {
     const now = moment().format('Y-MM-DD h:mm A');
     console.log(`${now} - ${logMsg}`);
 };
+
+const setMode = async (modeName) => {
+    let modes = await axios.get(getHubitatUrl('modes')).catch((err) => {
+        throw new Error(`Error getting modes: ${err}`)
+    })
+    let mode = modes.data.find((n) => {
+        n.name == modeName
+    })
+    if (!mode) throw new Error(`Could not find mode ${modeName}`)
+    await axios.get(getHubitatUrl(`modes/${mode.id}/activate`)).then(() => {
+        log(`Successfully set mode to ${modeName}`)
+    }).catch((err) => {
+        throw new Error(`Error setting mode: ${err}`)
+    })
+
+}
+
+
+const setLockCode = async (phoneNumber, reservationNumber) => {
+    let locks = axios.get(getHubitatUrl('devices')).catch((err) => {
+        throw new Error(`Error getting list of devices`)
+    })
+    locks = locks.data.filter((n) => {
+        return locksToCode.includes(n.label)
+    })
+    let lockCodeBody = [
+        LOCK_CODE_SLOT,
+        phoneNumber,
+        reservationNumber
+    ].join(',')
+
+    await Promise.all(
+        locks.map(async (lock) => {
+            await axios.get(`devices/${lock.id}/setCode/${lockCodeBody}`).then(() => {
+                log(`Successfully programmed code ${phoneNumber} on lock ${lock.name}`)
+            }).catch((err) => {
+                log(`Error setting code on lock ${lock.name}: ${err}`)
+            })
+        })
+    )
+}
+
+
+const removeLockCode = async (phoneNumber, reservationNumber) => {
+    let locks = axios.get(getHubitatUrl('devices')).catch((err) => {
+        throw new Error(`Error getting list of devices`)
+    })
+    locks = locks.data.filter((n) => {
+        return locksToCode.includes(n.label)
+    })
+    for await (const lock of locks) {
+        await axios.get(`devices/${lock.id}/deleteCode/${LOCK_CODE_SLOT}`).then(() => {
+            log(`Successfully removed code ${phoneNumber} on lock ${lock.name}`)
+        }).catch((err) => {
+            log(`Error removing code on lock ${lock.name}: ${err}`)
+        })
+    }
+}
+
+
+const schedules = {};
 
 
 const convertStrToDate = (str) => {
@@ -153,74 +107,55 @@ const convertStrToDate = (str) => {
 };
 
 
-const getiCalEvents = (cb) => {
+const getiCalEvents = async () => {
     const events = [];
-    let retryCount = 0;
-    // I've had errors with AirBnb's iCal not returning any events.  If this happens, I retry.
-    async.mapSeries(config.get('calendarUrl'), (calUrl, cb) => {
-        async.retry({
-            times: 60,
-            interval: 1000
-        }, (cb) => {
-            retryCount++;
-            if (retryCount == 1) {
-                log('Getting events..');
-            } else {
-                log('Getting events (retrying)..');
+
+    const airbnb_ical = await axios.get(config.get('ical_url')).catch((err) => {
+        log(`Error getting iCal: ${err}`)
+    })
+
+    let data = await ical.parseICS(airbnb_ical.data)
+
+    if (!data || Object.keys(data) == 0) {
+        return cb('No events returned');
+    }
+    for (const k in data) {
+        if (data.hasOwnProperty(k)) {
+            var ev = data[k];
+            if (ev && ev.start && ev.summary && ev.summary !== 'Airbnb (Not available)') {
+                events.push(ev);
             }
-            ical.fromURL(calUrl, {}, (err, data) => {
-                if (err) return cb(err);
-                if (!data || Object.keys(data) == 0) {
-                    return cb('No events returned');
-                }
-                for (const k in data) {
-                    if (data.hasOwnProperty(k)) {
-                        var ev = data[k];
-                        if (ev && ev.start && ev.summary && ev.summary !== 'Airbnb (Not available)') {
-                            events.push(ev);
-                        }
-                    }
-                }
-                log(`Found ${events.length} events from calendar URL ${calUrl}`);
-                return cb(null, events);
-            });
-        }, cb);
-    }, cb);
+        }
+    }
+    log(`Found ${events.length} events in airbnb calendar.`);
+    return events
 };
 
 
 
-const runCheckInActions = (ph, reservationNumber) => {
-    async.eachSeries([
-        (cb) => {
-            setLockCode(ph, reservationNumber, cb)
-        },
-        (cb) => {
-            let mode = config.get('checkin_mode')
-            if (mode) {
-                setMode(mode, cb)
-            } else {
-                return cb()
-            }
-        }
-    ])
+const runCheckInActions = async (ph, reservationNumber) => {
+    await setLockCode(ph, reservationNumber, cb).catch((err) => {
+        throw new Error(err)
+    })
+    let mode = config.get('checkin_mode')
+    if (mode) {
+        await setMode(mode).catch((err) => {
+            throw new Error(err)
+        })
+    }
 };
 
 
-const runCheckOutActions = (ph, reservationNumber) => {
-    async.eachSeries([
-        (cb) => {
-            removeLockCode(ph, reservationNumber, cb)
-        },
-        (cb) => {
-            let mode = config.get('checkout_mode')
-            if (mode) {
-                setMode(mode, cb)
-            } else {
-                return cb()
-            }
-        }
-    ])
+const runCheckOutActions = async (ph, reservationNumber) => {
+    await removeLockCode(ph, reservationNumber, cb).catch((err) => {
+        throw new Error(err)
+    })
+    let mode = config.get('checkout_mode')
+    if (mode) {
+        await setMode(mode).catch((err) => {
+            throw new Error(err)
+        })
+    }
 };
 
 
@@ -260,89 +195,87 @@ const startSchedule = (sched) => {
 
 
 
-const getSchedules = () => {
+const getSchedules = async () => {
     log('Refreshing schedules');
-    getiCalEvents((err, events) => {
-        if (err) {
-            return log('Error getting airbnb calendar events. Not modifying any schedules.');
+
+    const events = await getiCalEvents().catch((err) => {
+        throw new Error(err)
+    })
+
+    const currentCode = []
+    const currentSchedules = [];
+    for (let i = 0; i < events.length; i++) {
+
+        const timeStart = convertStrToDate(config.get('arrivalScheduleTime'));
+        const timeEnd = convertStrToDate(config.get('departureScheduleTime'));
+        const dateStart = new Date(events[i].start.getUTCFullYear(), events[i].start.getMonth(), events[i].start.getDate(), timeStart.hr, timeStart.min, timeStart.sec);
+        const dateEnd = new Date(events[i].end.getUTCFullYear(), events[i].end.getMonth(), events[i].end.getDate(), timeEnd.hr, timeEnd.min, timeEnd.sec);
+        const reservationNumber = events[i].description.match(/([A-Z0-9]{9,})/g)[0];
+
+        const phoneNumber = events[i].description.match(/\s([0-9]{4})/)[1];
+
+        if (!schedules[reservationNumber]) {
+            log('Scheduling new reservation ' + reservationNumber);
+            schedules[reservationNumber] = {
+                start: dateStart.toISOString(),
+                end: dateEnd.toISOString(),
+                phoneNumber,
+                reservationNumber: reservationNumber
+            };
+            startSchedule(schedules[reservationNumber]);
         }
 
-        events = events.flat();
-
-        const currentCodes = [];
-        const currentSchedules = [];
-        for (let i = 0; i < events.length; i++) {
-
-            const timeStart = convertStrToDate(config.get('arrivalScheduleTime'));
-            const timeEnd = convertStrToDate(config.get('departureScheduleTime'));
-            const dateStart = new Date(events[i].start.getUTCFullYear(), events[i].start.getMonth(), events[i].start.getDate(), timeStart.hr, timeStart.min, timeStart.sec);
-            const dateEnd = new Date(events[i].end.getUTCFullYear(), events[i].end.getMonth(), events[i].end.getDate(), timeEnd.hr, timeEnd.min, timeEnd.sec);
-            const reservationNumber = events[i].description.match(/([A-Z0-9]{9,})/g)[0];
-
-            const phoneNumber = events[i].description.match(/\s([0-9]{4})/)[1];
-
-            if (!schedules[reservationNumber]) {
-                log('Scheduling new reservation ' + reservationNumber);
-                schedules[reservationNumber] = {
-                    start: dateStart.toISOString(),
-                    end: dateEnd.toISOString(),
-                    phoneNumber,
-                    reservationNumber: reservationNumber
-                };
-                startSchedule(schedules[reservationNumber]);
-            }
-
-            if (schedules[reservationNumber].start !== dateStart.toISOString() || schedules[reservationNumber].end !== dateEnd.toISOString()) {
-                log('Schedule for ' + reservationNumber + ' changed! Updating schedule');
-                if (schedules[reservationNumber].startSchedule) schedules[reservationNumber].startSchedule.cancel();
-                if (schedules[reservationNumber].endSchedule) schedules[reservationNumber].endSchedule.cancel();
-                schedules[reservationNumber] = {
-                    start: dateStart.toISOString(),
-                    end: dateEnd.toISOString(),
-                    phoneNumber,
-                    reservationNumber: reservationNumber
-                };
-                startSchedule(schedules[reservationNumber]);
-            }
-
-
-            if (moment().isBetween(dateStart, dateEnd)) {
-                currentCodes.push(phoneNumber);
-            }
-
-            currentSchedules.push(reservationNumber);
-
+        if (schedules[reservationNumber].start !== dateStart.toISOString() || schedules[reservationNumber].end !== dateEnd.toISOString()) {
+            log('Schedule for ' + reservationNumber + ' changed! Updating schedule');
+            if (schedules[reservationNumber].startSchedule) schedules[reservationNumber].startSchedule.cancel();
+            if (schedules[reservationNumber].endSchedule) schedules[reservationNumber].endSchedule.cancel();
+            schedules[reservationNumber] = {
+                start: dateStart.toISOString(),
+                end: dateEnd.toISOString(),
+                phoneNumber,
+                reservationNumber: reservationNumber
+            };
+            startSchedule(schedules[reservationNumber]);
         }
 
-        //Check for schedules that need to be removed!
 
-        for (const k in schedules) {
-            if (currentSchedules.indexOf(k) == -1) {
-                console.log('Reservation ' + k + ' has been deleted, removing the schedule!');
-                if (schedules[k].startSchedule) schedules[k].startSchedule.cancel();
-                if (schedules[k].endSchedule) schedules[k].endSchedule.cancel();
-                delete schedules[k];
-            }
+        if (moment().isBetween(dateStart, dateEnd)) {
+            currentCode = [phoneNumber, reservationNumber]
         }
 
-        if (currentCodes.length == 0) {
-            log('There should be zero codes programmed in the lock right now.');
-        }
+        currentSchedules.push(reservationNumber);
 
-        if (currentCodes.length > 0) {
-            log('The following codes should be active: ' + currentCodes);
-        }
-    });
+    }
 
+    //Check for schedules that need to be removed!
+
+    for (const k in schedules) {
+        if (currentSchedules.indexOf(k) == -1) {
+            console.log('Reservation ' + k + ' has been deleted, removing the schedule!');
+            if (schedules[k].startSchedule) schedules[k].startSchedule.cancel();
+            if (schedules[k].endSchedule) schedules[k].endSchedule.cancel();
+            delete schedules[k];
+        }
+    }
+
+    if (currentCode.length == 0) {
+        log('There should be zero codes programmed in the lock right now.');
+    } else {
+        log('The following code should be active: ' + currentCode[0]);
+    }
 };
 
 
 
-log('Setting up cron job to check calendar every hour');
+log('Setting up cron job to check calendar');
 
 
-const job = schedule.scheduleJob(config.get('cron_schedule'), () => {
-    getSchedules();
-});
 
-getSchedules();
+
+
+(async function () {
+    schedule.scheduleJob(config.get('cron_schedule'), async () => {
+        await getSchedules();
+    });
+    await getSchedules();
+})()
