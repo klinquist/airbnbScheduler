@@ -1,8 +1,8 @@
 ## Airbnb Scheduler
 
-This script allows you to specify a check in time and a check out time, and runs functions if a guest is checking in or out that day.  This runs on a raspberry pi in my house.
+This script is designed to program a lock code & set a mode on a Hubitat hub at Airbnb checkin/check out times.
 
-I have SmartThings WebCoRE pistons set up to execute SmartThings routines when you GET a URL for check in and check out.  For check in, I turn on the thermostat, set the home to "Awaiting Guest" mode, etc.  For check out, I arm the alarm, turn down the thermostat, etc.
+This runs on a raspberry pi in my house.
 
 
 ## Installation & Usage
@@ -14,13 +14,19 @@ I have SmartThings WebCoRE pistons set up to execute SmartThings routines when y
 
 I recommend using a node process manager like _pm2_ to run it on startup.
 
-Feel free to edit
+
+
+## Changelog
+
+* 0.1.0: Initial commits
+
+
 
 ## License
  
 The MIT License (MIT)
 
-Copyright (c) 2019 Kristopher Linquist
+Copyright (c) 2022 Kristopher Linquist
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
