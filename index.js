@@ -50,9 +50,9 @@ const setMode = async (modeName) => {
 const setLockCode = async (phoneNumber, reservationNumber) => {
     let locks;
     try {
-        locks = axios.get(getHubitatUrl('devices'))
-    } catch {
-        throw new Error(`Error getting list of devices`)
+        locks = await axios.get(getHubitatUrl('devices'))
+    } catch (e) {
+        throw new Error(`Error getting list of devices: ${e.message}`)
     }
     locks = locks.data.filter((n) => {
         return locksToCode.includes(n.label)
@@ -79,7 +79,7 @@ const removeLockCode = async (phoneNumber, reservationNumber) => {
 
     let locks;
     try {
-        locks = axios.get(getHubitatUrl('devices'))
+        locks = await axios.get(getHubitatUrl('devices'))
     } catch (e) {
         throw new Error(`Error getting list of devices ${e}`)
     }
