@@ -133,10 +133,12 @@ const setLockWithRetry = async (lock, lockCodeBody, phoneNumber) => {
             })
             let attrib;
             try {
-                attrib = JSON.parse(lockData.data.attributes.find(n => n.name == 'lockCodes').currentValue)[LOCK_CODE_SLOT].code
+                attrib = JSON.parse(lockData.data.attributes.find(n => n.name == 'lockCodes').currentValue)
             } catch (e) {
-                return bail(log.error(`Error parsing lock codes: ${e}`))
+                log.error(`Error parsing lock codes: ${e}`)
+                return bail()
             }
+            attrib = attrib[LOCK_CODE_SLOT] && attrib[LOCK_CODE_SLOT].code
             if (attrib !== phoneNumber) {
                 log.error(`Lock code not set correctly on lock ${lock.name}, retrying`)
                 throw new Error()
