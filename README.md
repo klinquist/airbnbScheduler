@@ -2,7 +2,7 @@
 
 This script is designed to program a lock code & set a mode on a Hubitat hub at Airbnb checkin/check out times.
 
-This runs on a raspberry pi in my house.
+This runs on a raspberry pi in my house on the same network as the Hubitat.
 
 
 ## Installation & Usage
@@ -15,6 +15,10 @@ This runs on a raspberry pi in my house.
 I recommend using a node process manager like _pm2_ to run it on startup.
 
 
+## Differences between durability of this vs RBoy's Rental Lock Automator
+Hopefully, most of us chose Hubitat because it doesn't require internet access!  RBoy's app could fail to program your lock if the internet is down at check-in time.  That said, RBoy's app has excellent retry mechanisms in place that I have not evaluated.  Currently, I program the lock, ask to refresh its status, then see if the code is present.  If not, I retry a few times.
+
+I always recommend putting a backup code into the lock in one of its permanent slots.  That way, if a guest calls you and says their code is not working, you can always provide that backup code for their stay - then just change it afterwards.
 
 ## Changelog
 
