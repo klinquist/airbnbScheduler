@@ -6,7 +6,15 @@ const ical = require('ical'),
         moment = require('moment-timezone'),
         config = require('config'),
         schedule = require('node-schedule'),
-        request = require('axios')
+        retry = require('async-retry')
+
+
+
+let pushover, p
+if (config.has('pushover')) {
+    pushover = require('pushover-notifications')
+    p = new pushover({ user: config.get('pushover.user'), token: config.get('pushover.token') });
+}
 
 
 const LOCK_CODE_SLOT = config.get('lock_code_slot')
@@ -20,30 +28,55 @@ const getHubitatUrl = (path) => {
 }
 
 
-const log = (logMsg) => {
-    const now = moment().format('Y-MM-DD h:mm A');
-    console.log(`${now} - ${logMsg}`);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+const log = {
+    debug: (msg) => {
+        const now = moment().format('Y-MM-DD h:mm A');
+        console.log(`${now} - ${msg}`);
+    },
+    info: (msg) => {
+        const now = moment().format('Y-MM-DD h:mm A');
+        console.log(`${now} - INFO: ${msg}`);
+        if (config.has('pushover')) {
+             p.send({
+                 message: msg,
+                 title: "Airbnb Lock Code", // optional
+                 sound: 'magic',
+                 priority: 1
+             }, (err, res) => {
+                    if (err) {
+                        log.error(err)
+                    }
+             })
+        }
+    },
+    error: (msg) => {
+        const now = moment().format('Y-MM-DD h:mm A');
+        console.log(`${now} - ERROR: ${msg}`);
+    }
 };
 
 const setMode = async (modeName) => {
     let modes;
     try {
         modes = await axios.get(getHubitatUrl('modes'))
-    } catch (e) {
-        throw new Error(`Error getting modes: ${e}`)
+    } catch (err) {
+        throw new Error(err)
     }
 
-    let mode = modes.data.find((n) => {
-        n.name == modeName
-    })
-    if (!mode) throw new Error(`Could not find mode ${modeName}`)
+    let mode = modes.data.find(n => n.name.toUpperCase() == modeName.toUpperCase())
+    if (!mode) return log.error(`Could not find mode ${modeName}`)
 
+    if (mode.active) {
+        return log.info(`Mode ${modeName} is already active.`)
+    }
     try {
         await axios.get(getHubitatUrl(`modes/${mode.id}`))
-    } catch (e) {   
-        throw new Error(`Error setting mode: ${err}`)
+    } catch (e) {
+        throw new Error(err)
     }
-    log(`Successfully set mode to ${modeName}`)
+    log.info(`Successfully set mode to ${modeName}`)
 }
 
 
@@ -54,28 +87,61 @@ const setLockCode = async (phoneNumber, reservationNumber) => {
     } catch (e) {
         throw new Error(`Error getting list of devices: ${e.message}`)
     }
-    locks = locks.data.filter((n) => {
-        return locksToCode.includes(n.label)
-    })
+
+    locks = locks.data.filter(n => locksToCode.includes(n.label))
+
     let lockCodeBody = [
         LOCK_CODE_SLOT,
         phoneNumber,
         reservationNumber
     ].join(',')
 
-    await Promise.all(
-        locks.map(async (lock) => {
-            await axios.get(`devices/${lock.id}/setCode/${lockCodeBody}`).then(() => {
-                log(`Successfully programmed code ${phoneNumber} on lock ${lock.name}`)
-            }).catch((err) => {
-                log(`Error setting code on lock ${lock.name}: ${err}`)
-            })
-        })
-    )
+    const serialLoopFlow = async (locks) => {
+        for (const lock in locks) {
+            await setLockWithRetry(locks[lock], lockCodeBody, phoneNumber)
+        }
+    }
+    await serialLoopFlow(locks)
 }
 
 
-const removeLockCode = async (phoneNumber, reservationNumber) => {
+const setLockWithRetry = async (lock, lockCodeBody, phoneNumber) => {
+    await retry(
+        async (bail) => {
+            // if anything throws, we retry
+            await axios.get(getHubitatUrl(`devices/${lock.id}/setCode/${lockCodeBody}`)).then(() => {
+                log.debug(`Programmed code ${phoneNumber} on lock ${lock.name}`)
+            }).catch((err) => {
+                log.debug(`Error setting code on lock ${lock.name}: ${err}`)
+            })
+            log.debug('Waiting 5 seconds and asking the lock to refresh')
+            await sleep(5000)
+            await (getHubitatUrl(`devices/${lock.id}/refresh`))
+            await sleep(5000)
+            log.debug('Getting lock codes')
+            let lockData = await axios.get(getHubitatUrl(`devices/${lock.id}/getCodes`)).catch((err) => {
+                log.error(err)
+            })
+            let attrib;
+            try {
+                attrib = JSON.parse(lockData.data.attributes.find(n => n.name == 'lockCodes').currentValue)[LOCK_CODE_SLOT].code
+            } catch (e) {
+                return bail(log.error(`Error parsing lock codes: ${e}`))
+            }
+            if (attrib !== phoneNumber) {
+                log.error(`Lock code not set correctly on lock ${lock.name}, retrying`)
+                throw new Error()
+            }
+            log.info(`Successfully set code ${phoneNumber} on lock ${lock.name}`)
+        }, {
+            retries: 3,
+            minTimeout: 60000
+        }
+    );
+}
+
+
+const removeLockCode = async (phoneNumber) => {
 
     let locks;
     try {
@@ -88,15 +154,20 @@ const removeLockCode = async (phoneNumber, reservationNumber) => {
         return locksToCode.includes(n.label)
     })
 
-    await Promise.all(
-        locks.map(async (lock) => {
-            await axios.get(`devices/${lock.id}/deleteCode/${lockCodeBody}`).then(() => {
-                log(`Successfully programmed code ${phoneNumber} on lock ${lock.name}`)
-            }).catch((err) => {
-                log(`Error setting code on lock ${lock.name}: ${err}`)
-            })
-        })
-    )
+
+    const serialLoopFlow = async (locks) => {
+        for (const lock in locks) {
+                await axios.get(getHubitatUrl(`devices/${lock.id}/deleteCode/${LOCK_CODE_SLOT}`)).then(() => {
+                    log.info(`Successfully removed code ${phoneNumber} from lock ${lock.name}`)
+                }).catch((err) => {
+                    log.error(`Error setting code on lock ${lock.name}: ${err}`)
+                })
+            }
+        }
+    await serialLoopFlow(locks)
+    
+
+
 }
 
 
@@ -127,13 +198,13 @@ const getiCalEvents = async () => {
     const events = [];
 
     const airbnb_ical = await axios.get(config.get('ical_url')).catch((err) => {
-        log(`Error getting iCal: ${err}`)
+        return log.error(`Error getting iCal: ${err}`)
     })
 
-    let data = await ical.parseICS(airbnb_ical.data)
+    let data = ical.parseICS(airbnb_ical.data)
 
     if (!data || Object.keys(data) == 0) {
-        return cb('No events returned');
+        return log.debug("No reservations found")
     }
     for (const k in data) {
         if (data.hasOwnProperty(k)) {
@@ -143,44 +214,44 @@ const getiCalEvents = async () => {
             }
         }
     }
-    log(`Found ${events.length} events in airbnb calendar.`);
+    log.debug(`Found ${events.length} events in airbnb calendar.`);
     return events
 };
 
 
 
 const runCheckInActions = async (ph, reservationNumber) => {
-
+    log.info('Running check in actions')
     try {
-        await setLockCode(ph, reservationNumber, cb)
+        await setLockCode(ph, reservationNumber)
     } catch (err) {
-        throw new Error(`Error setting lock code: ${err}`)
+        log.error(`Error setting lock code: ${err}`)
     }
-    
+
     let mode = config.get('checkin_mode')
     if (mode) {
         try {
             await setMode(mode)
-        } catch (e) {
-            throw new Error(`Error setting mode: ${err}`)
+        } catch (err) {
+            log.error(`Error setting mode: ${err}`)
         }
     }
 };
 
 
 const runCheckOutActions = async (ph, reservationNumber) => {
-
+    log.info('Running check out actions')
     try {
-        await removeLockCode(ph, reservationNumber, cb)
+        await removeLockCode(ph)
     } catch (err) {
-        throw new Error(`Error removing lock code: ${err}`)
+        log.error(`Error removing lock code: ${err}`)
     }
     let mode = config.get('checkout_mode')
     if (mode) {
         try {
             await setMode(mode)
-        } catch (e) {
-            throw new Error(`Error setting mode: ${err}`)
+        } catch (err) {
+            log.error(`Error setting mode: ${err}`)
         }
     }
 };
@@ -223,7 +294,7 @@ const startSchedule = (sched) => {
 
 
 const getSchedules = async () => {
-    log('Refreshing schedules');
+    log.info('Refreshing schedules');
 
     const events = await getiCalEvents().catch((err) => {
         throw new Error(err)
@@ -278,7 +349,7 @@ const getSchedules = async () => {
 
     for (const k in schedules) {
         if (currentSchedules.indexOf(k) == -1) {
-            console.log('Reservation ' + k + ' has been deleted, removing the schedule!');
+            log.info('Reservation ' + k + ' has been deleted, removing the schedule!');
             if (schedules[k].startSchedule) schedules[k].startSchedule.cancel();
             if (schedules[k].endSchedule) schedules[k].endSchedule.cancel();
             delete schedules[k];
@@ -286,16 +357,15 @@ const getSchedules = async () => {
     }
 
     if (currentCode.length == 0) {
-        log('There should be zero codes programmed in the lock right now.');
+        log.debug('There should be zero codes programmed in the lock right now.');
     } else {
-        log('The following code should be active: ' + currentCode[0]);
+        log.debug('The following code should be active: ' + currentCode[0]);
     }
 };
 
 
 
-log('Setting up cron job to check calendar');
-
+log.debug('Setting up cron job to check calendar');
 
 
 
@@ -306,5 +376,5 @@ log('Setting up cron job to check calendar');
     // });
     // await getSchedules();
 
-    await setLockCode('1234', 'KRIS4')
+    await setLockCode('1233', 'Bobby')
 })()
