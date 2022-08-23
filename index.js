@@ -60,7 +60,7 @@ const log = {
     },
     error: (msg) => {
         const now = moment().format('Y-MM-DD h:mm A');
-        console.log(`${now} - ERROR: ${msg}`);,
+        console.log(`${now} - ERROR: ${msg}`);
         sendPush(msg)
     }
 };
