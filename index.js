@@ -30,32 +30,41 @@ const getHubitatUrl = (path) => {
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
+
+const sendPush = (msg) => {
+    if (config.has('pushover')) {
+        p.send({
+            message: msg,
+            title: "Airbnb Lock Code", // optional
+            sound: 'magic',
+            priority: 1
+        }, (err, res) => {
+            if (err) {
+                log.error(err)
+            }
+        })
+    }
+}
+
+
 const log = {
     debug: (msg) => {
         const now = moment().format('Y-MM-DD h:mm A');
-        console.log(`${now} - ${msg}`);
+        console.log(`${now} - DEBUG: ${msg}`);
     },
     info: (msg) => {
         const now = moment().format('Y-MM-DD h:mm A');
         console.log(`${now} - INFO: ${msg}`);
-        if (config.has('pushover')) {
-             p.send({
-                 message: msg,
-                 title: "Airbnb Lock Code", // optional
-                 sound: 'magic',
-                 priority: 1
-             }, (err, res) => {
-                    if (err) {
-                        log.error(err)
-                    }
-             })
-        }
+        sendPush(msg)
+
     },
     error: (msg) => {
         const now = moment().format('Y-MM-DD h:mm A');
-        console.log(`${now} - ERROR: ${msg}`);
+        console.log(`${now} - ERROR: ${msg}`);,
+        sendPush(msg)
     }
 };
+
 
 const setMode = async (modeName) => {
     let modes;
