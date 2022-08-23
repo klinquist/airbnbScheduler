@@ -1,4 +1,4 @@
-## Airbnb Scheduler
+## Airbnb Lock Coder for Hubitat
 
 This script is designed to program a lock code & set a mode on a Hubitat hub at Airbnb checkin/check out times.
 
@@ -9,7 +9,7 @@ This runs on a raspberry pi in my house.
 
 * Git clone to a folder 
 * Enter that folder and run `npm install`
-* Edit the `config/default.json` to fit your needs
+* Edit the `config/default.json` to fit your needs.  Generate a pushover.net app & user token for push notifications.
 * Run `node index.js`.  
 
 I recommend using a node process manager like _pm2_ to run it on startup.
