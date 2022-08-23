@@ -275,7 +275,7 @@ const startSchedule = (sched) => {
             reservationNumber: sched.reservationNumber
         }));
     } else {
-        log(`Skipping scheduling start date - it's in the past`);
+        log.debug(`Skipping scheduling start date - it's in the past`);
     }
 
     if (!dateInPast(new Date(sched.end))) {
@@ -286,7 +286,7 @@ const startSchedule = (sched) => {
             reservationNumber: sched.reservationNumber
         }));
     } else {
-        log(`Skipping scheduling end date - it's in the past`);
+        log.debug(`Skipping scheduling end date - it's in the past`);
     }
 };
 
@@ -294,7 +294,7 @@ const startSchedule = (sched) => {
 
 
 const getSchedules = async () => {
-    log.info('Refreshing schedules');
+    log.debug('Refreshing schedules');
 
     const events = await getiCalEvents().catch((err) => {
         throw new Error(err)
@@ -313,7 +313,7 @@ const getSchedules = async () => {
         const phoneNumber = events[i].description.match(/\s([0-9]{4})/)[1];
 
         if (!schedules[reservationNumber]) {
-            log('Scheduling new reservation ' + reservationNumber);
+            log.debug('Scheduling new reservation ' + reservationNumber);
             schedules[reservationNumber] = {
                 start: dateStart.toISOString(),
                 end: dateEnd.toISOString(),
@@ -324,7 +324,7 @@ const getSchedules = async () => {
         }
 
         if (schedules[reservationNumber].start !== dateStart.toISOString() || schedules[reservationNumber].end !== dateEnd.toISOString()) {
-            log('Schedule for ' + reservationNumber + ' changed! Updating schedule');
+            log.debug('Schedule for ' + reservationNumber + ' changed! Updating schedule');
             if (schedules[reservationNumber].startSchedule) schedules[reservationNumber].startSchedule.cancel();
             if (schedules[reservationNumber].endSchedule) schedules[reservationNumber].endSchedule.cancel();
             schedules[reservationNumber] = {
@@ -371,10 +371,8 @@ log.debug('Setting up cron job to check calendar');
 
 
 (async function () {
-    // schedule.scheduleJob(config.get('cron_schedule'), async () => {
-    //     await getSchedules();
-    // });
-    // await getSchedules();
-
-    await setLockCode('1233', 'Bobby')
+    schedule.scheduleJob(config.get('cron_schedule'), async () => {
+        await getSchedules();
+    });
+    await getSchedules();
 })()

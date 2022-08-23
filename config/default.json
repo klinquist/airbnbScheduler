@@ -1,7 +1,5 @@
 {
-    "calendarUrl": [
-        "https://www.airbnb.com/calendar/ical/XXXXX.ics?s=XXXXX"
-    ],
+    "ical_url": "https://www.airbnb.com/calendar/ical/XXXXXX.ics?s=XXXXX",
     "arrivalScheduleTime": "10:00 AM",
     "departureScheduleTime": "3:00 PM",
     "timezone": "America/Los_Angeles",
@@ -9,13 +7,13 @@
     "hubitat_maker_api_access_token": "XXXXX",
     "lock_code_slot": "10",
     "locks_to_code": [
-        "Front Door",
-        "Garage Keypad"
+        "Front Door"
     ],
     "checkin_mode": "home",
     "checkout_mode": "away",
-    "check_hourly_for_code_in_lock": false,
-    "notify_on_error": true,
-    "notify_on_success":true,
-    "cron_schedule": "1 * * * *"
+    "cron_schedule": "0 * * * *",
+    "pushover": {
+        "user": "pusnover.net user key",
+        "token": "pushover.net user token"
+    }
 }
