@@ -311,7 +311,7 @@ const getSchedules = async () => {
         throw new Error(err)
     })
 
-    const currentCode = []
+    let currentCode = []
     const currentSchedules = [];
     for (let i = 0; i < events.length; i++) {
 
