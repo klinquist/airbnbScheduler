@@ -143,7 +143,7 @@ const setLockWithRetry = async (lock, lockCodeBody, phoneNumber) => {
                 log.error(`Lock code not set correctly on lock ${lock.name}, retrying`)
                 throw new Error()
             }
-            log.info(`Successfully set code ${phoneNumber} on lock ${lock.name}`)
+            log.info(`Successfully set code ${phoneNumber} on lock ${lock.label}`)
         }, {
             retries: 3,
             minTimeout: 60000
@@ -168,16 +168,15 @@ const removeLockCode = async (phoneNumber) => {
 
     const serialLoopFlow = async (locks) => {
         for (const lock in locks) {
-                await axios.get(getHubitatUrl(`devices/${lock.id}/deleteCode/${LOCK_CODE_SLOT}`)).then(() => {
-                    log.info(`Successfully removed code ${phoneNumber} from lock ${lock.name}`)
+            await axios.get(getHubitatUrl(`devices/${locks[lock].id}/deleteCode/${LOCK_CODE_SLOT}`)).then(() => {
+                    log.info(`Successfully removed code ${phoneNumber} from lock ${locks[lock].label}`)
                 }).catch((err) => {
-                    log.error(`Error setting code on lock ${lock.name}: ${err}`)
+                    log.error(`Error setting code on lock ${locks[lock].name}: ${err}`)
                 })
             }
-        }
-    await serialLoopFlow(locks)
+    }
     
-
+    await serialLoopFlow(locks)
 
 }
 
