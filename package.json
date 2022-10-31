@@ -1,6 +1,6 @@
 {
   "name": "airbnbscheduler",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Hubitat Airbnb Lock Coder.  Automatically set guest lock codes & modes on checkin/checkout.",
   "main": "index.js",
   "scripts": {
