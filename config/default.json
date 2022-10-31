@@ -15,5 +15,6 @@
     "pushover": {
         "user": "pusnover.net user key",
         "token": "pushover.net user token"
-    }
+    },
+    "run_checkout_immediately_if_reservation_is_cancelled_mid_stay": true
 }

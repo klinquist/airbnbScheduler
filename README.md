@@ -22,6 +22,7 @@ I always recommend putting a backup code into the lock in one of its permanent s
 
 ## Changelog
 
+* 0.1.2: Option to run check-out actions immediately if a reservation is canceled mid-stay.
 * 0.1.1: Fix for removing lock codes
 * 0.1.0: Initial commits
 

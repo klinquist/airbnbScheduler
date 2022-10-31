@@ -361,8 +361,18 @@ const getSchedules = async () => {
         if (currentSchedules.indexOf(k) == -1) {
             log.info('Reservation ' + k + ' has been deleted, removing the schedule!');
             if (schedules[k].startSchedule) schedules[k].startSchedule.cancel();
-            if (schedules[k].endSchedule) schedules[k].endSchedule.cancel();
-            delete schedules[k];
+            if (schedules[k].endSchedule && dateInPast(schedules[k].endSchedule)) schedules[k].endSchedule.cancel();
+
+            if (moment().isBetween(schedules[k].startSchedule, schedules[k].endSchedule)) {
+                if (config.get('run_checkout_immediately_if_reservation_is_cancelled_mid_stay')) {
+                    log.info('Reservation ' + k + ' is currently active but has been canceled, removing lock code and running checkout actions');
+                    runCheckOutActions(schedules[k].phoneNumber, schedules[k].reservationNumber);
+                    schedules[k].endSchedule.cancel();
+                    delete schedules[k];
+                } else {
+                    log.info('Reservation ' + k + ' is currently active but has been canceled, check out actions will run at normally scheduled time');
+                }
+            }
         }
     }
 
