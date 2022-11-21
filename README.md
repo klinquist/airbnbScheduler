@@ -12,6 +12,22 @@ This runs on a raspberry pi in my house on the same network as the Hubitat.
 * Edit the `config/default.json` to fit your needs.  Generate a pushover.net app & user token for push notifications.
 * Run `node index.js`.  
 
+
+There are three new optional keys that may not be obvious.  If you want to set an "arriving soon" mode, you can use these keys.  The first is the time the mode will be enabled, the second is the offset from the check-in day.
+
+I use this to turn on my water heater.  I want to make sure guests have hot water when they arrive, so I need to turn it on prior to coding the lock and putting the home into "home" mode.  So I have an "arriving soon" mode that turns on the water heater at 1:00AM on the day of arrival.
+
+If you want this to run a day *before* arrival, set arrivingSoonDayOffset to -1
+
+
+```
+    "arrivingSoonTime": "1:00 AM" //
+    "arrivingSoonDayOffset": 0,
+    "arriving_soon_mode":"ArrivingSoon", //what mode to enable
+```
+
+
+
 I recommend using a node process manager like _pm2_ to run it on startup.
 
 
@@ -22,6 +38,7 @@ I always recommend putting a backup code into the lock in one of its permanent s
 
 ## Changelog
 
+* 0.1.3: Added support for "arriving soon" actions.
 * 0.1.2: Option to run check-out actions immediately if a reservation is canceled mid-stay.
 * 0.1.1: Fix for removing lock codes
 * 0.1.0: Initial commits

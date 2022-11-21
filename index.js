@@ -211,6 +211,10 @@ const getiCalEvents = async () => {
         return log.error(`Error getting iCal: ${err}`)
     })
 
+    if (!airbnb_ical || typeof airbnb_ical.data == 'undefined') {
+        return log.error('No iCal data found')
+    }
+    
     let data = ical.parseICS(airbnb_ical.data)
 
     if (!data || Object.keys(data) == 0) {
@@ -224,7 +228,7 @@ const getiCalEvents = async () => {
             }
         }
     }
-    log.debug(`Found ${events.length} events in airbnb calendar.`);
+    log.debug(`Found ${events.length} upcoming reservations in airbnb calendar.`);
     return events
 };
 
@@ -267,6 +271,20 @@ const runCheckOutActions = async (ph, reservationNumber) => {
 };
 
 
+const runArrivingSoonActions = async (ph, reservationNumber) => {
+    let mode = config.get('arriving_soon_mode')
+    if (mode) {
+        try {
+            await setMode(mode)
+        } catch (err) {
+            log.error(`Error setting mode: ${err}`)
+        }
+    } else {
+        log.error(`No arriving_soon_mode set in config`)
+    }
+}
+
+
 const dateInPast = function (firstDate) {
     if (firstDate.setHours(0, 0, 0, 0) <= new Date().setHours(0, 0, 0, 0)) {
         return true;
@@ -278,6 +296,7 @@ const dateInPast = function (firstDate) {
 const startSchedule = (sched) => {
 
     if (!dateInPast(new Date(sched.start))) {
+        log.debug(`Scheduling checkin actions at ${sched.start} for reservation ${sched.reservationNumber}`)
         sched.startSchedule = schedule.scheduleJob(new Date(sched.start), ((context) => {
             runCheckInActions(context.phoneNumber, context.reservationNumber);
         }).bind(null, {
@@ -289,6 +308,7 @@ const startSchedule = (sched) => {
     }
 
     if (!dateInPast(new Date(sched.end))) {
+        log.debug(`Scheduling checkout actions at ${sched.end} for reservation ${sched.reservationNumber}`);
         sched.endSchedule = schedule.scheduleJob(new Date(sched.end), ((context) => {
             runCheckOutActions(context.phoneNumber, context.reservationNumber);
         }).bind(null, {
@@ -297,6 +317,20 @@ const startSchedule = (sched) => {
         }));
     } else {
         log.debug(`Skipping scheduling end date - it's in the past`);
+    }
+
+    if (sched.arriving) {
+        if (!dateInPast(new Date(sched.arriving))) {
+            log.debug(`Scheduling arriving soon actions at ${sched.arriving} for reservation ${sched.reservationNumber}`);
+            sched.arrivingSoonSchedule = schedule.scheduleJob(new Date(sched.arriving), ((context) => {
+                runArrivingSoonActions(context.phoneNumber, context.reservationNumber);
+            }).bind(null, {
+                phoneNumber: sched.phoneNumber,
+                reservationNumber: sched.reservationNumber
+            }));
+        } else {
+            log.debug(`Skipping scheduling arrivingSoon date - it's in the past`);
+        }
     }
 };
 
@@ -314,6 +348,8 @@ const getSchedules = async () => {
     const currentSchedules = [];
     for (let i = 0; i < events.length; i++) {
 
+
+
         const timeStart = convertStrToDate(config.get('arrivalScheduleTime'));
         const timeEnd = convertStrToDate(config.get('departureScheduleTime'));
         const dateStart = new Date(events[i].start.getUTCFullYear(), events[i].start.getMonth(), events[i].start.getDate(), timeStart.hr, timeStart.min, timeStart.sec);
@@ -322,19 +358,35 @@ const getSchedules = async () => {
 
         const phoneNumber = events[i].description.match(/\s([0-9]{4})/)[1];
 
+
+        let arrivingSoonStart, arrivingSoonDate
+        if (config.get('arrivingSoonTime')) {
+            arrivingSoonStart = convertStrToDate(config.get('arrivingSoonTime'));
+            arrivingSoonDate = new Date(events[i].start.getUTCFullYear(), events[i].start.getMonth(), events[i].start.getDate(), arrivingSoonStart.hr, arrivingSoonStart.min, arrivingSoonStart.sec);
+            if (config.get('arrivingSoonDayOffset')) {
+                arrivingSoonDate = new Date(arrivingSoonDate.setDate(arrivingSoonDate.getDate() + (config.get('arrivingSoonDayOffset'))));
+            }
+        }
+
+
         if (!schedules[reservationNumber]) {
             log.debug('Scheduling new reservation ' + reservationNumber);
-            schedules[reservationNumber] = {
+            let sched = {
                 start: dateStart.toISOString(),
                 end: dateEnd.toISOString(),
                 phoneNumber,
                 reservationNumber: reservationNumber
-            };
+            }
+            if (arrivingSoonDate) {
+                sched.arriving = arrivingSoonDate.toISOString()
+            }
+            schedules[reservationNumber] = sched
             startSchedule(schedules[reservationNumber]);
         }
 
         if (schedules[reservationNumber].start !== dateStart.toISOString() || schedules[reservationNumber].end !== dateEnd.toISOString()) {
             log.debug('Schedule for ' + reservationNumber + ' changed! Updating schedule');
+            if (schedules[reservationNumber].arrivingSoonSchedule) schedules[reservationNumber].arrivingSoonSchedule.cancel();
             if (schedules[reservationNumber].startSchedule) schedules[reservationNumber].startSchedule.cancel();
             if (schedules[reservationNumber].endSchedule) schedules[reservationNumber].endSchedule.cancel();
             schedules[reservationNumber] = {
@@ -343,6 +395,9 @@ const getSchedules = async () => {
                 phoneNumber,
                 reservationNumber: reservationNumber
             };
+            if (arrivingSoonDate) {
+                schedules[reservationNumber].arriving = arrivingSoonDate.toISOString()
+            }
             startSchedule(schedules[reservationNumber]);
         }
 
