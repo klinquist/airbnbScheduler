@@ -416,7 +416,7 @@ const getSchedules = async () => {
         if (currentSchedules.indexOf(k) == -1) {
             log.info('Reservation ' + k + ' has been deleted, removing the schedule!');
             if (schedules[k].startSchedule) schedules[k].startSchedule.cancel();
-            if (schedules[k].endSchedule && dateInPast(schedules[k].endSchedule)) schedules[k].endSchedule.cancel();
+            if (schedules[k].endSchedule && dateInPast(new Date(schedules[k].end))) schedules[k].endSchedule.cancel();
 
             if (moment().isBetween(schedules[k].startSchedule, schedules[k].endSchedule)) {
                 if (config.get('run_checkout_immediately_if_reservation_is_cancelled_mid_stay')) {
