@@ -286,10 +286,7 @@ const runArrivingSoonActions = async (ph, reservationNumber) => {
 
 
 const dateInPast = function (firstDate) {
-    if (firstDate.setHours(0, 0, 0, 0) <= new Date().setHours(0, 0, 0, 0)) {
-        return true;
-    }
-    return false;
+    return firstDate.getTime() < new Date().getTime()
 };
 
 
