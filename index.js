@@ -427,6 +427,8 @@ const getSchedules = async () => {
                 } else {
                     log.info('Reservation ' + k + ' is currently active but has been canceled, check out actions will run at normally scheduled time');
                 }
+            } else {
+                delete schedules[k];
             }
         }
     }
