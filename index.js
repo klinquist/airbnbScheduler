@@ -369,7 +369,7 @@ const getSchedules = async (firstRun) => {
 
         if (!schedules[reservationNumber]) {
             let logMessage = 'Scheduling new reservation ' + reservationNumber + ' for ' + dateStart.toISOString() + ' to ' + dateEnd.toISOString();
-            if (!firstrun) {
+            if (!firstRun) {
                 // info to send push notification if this isn't on first run/startup
                 log.info(logMessage)
             } else {
