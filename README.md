@@ -40,7 +40,7 @@ I always recommend putting a backup code into the lock in one of its permanent s
 
 ## Changelog
 
-* 0.1.7: Also send notifications for new schedules found (not part of initial startup)
+* 0.1.8: Also send notifications for new schedules found (not part of initial startup)
 * 0.1.6: Bug related to checking if a date is in the past when it occurs today
 * 0.0.5: Another quick bug fix related to the same as below.
 * 0.0.4: Fix to removing deleted schedules over and over again
