@@ -17,7 +17,8 @@ if (config.has('pushover')) {
 }
 
 
-const LOCK_CODE_SLOT = config.get('lock_code_slot')
+let LOCK_CODE_SLOT = config.get('lock_code_slot')
+if (typeof LOCK_CODE_SLOT == 'number') { LOCK_CODE_SLOT = LOCK_CODE_SLOT.toString() }
 const HUBITAT_IP = config.get('hubitat_ip');
 const HUBITAT_ACCESS_TOKEN = config.get('hubitat_maker_api_access_token')
 const locksToCode = config.get('locks_to_code')
@@ -334,7 +335,7 @@ const startSchedule = (sched) => {
 
 
 
-const getSchedules = async () => {
+const getSchedules = async (firstRun) => {
     log.debug('Refreshing schedules');
 
     const events = await getiCalEvents().catch((err) => {
@@ -367,7 +368,13 @@ const getSchedules = async () => {
 
 
         if (!schedules[reservationNumber]) {
-            log.debug('Scheduling new reservation ' + reservationNumber);
+            let logMessage = 'Scheduling new reservation ' + reservationNumber + ' for ' + dateStart.toISOString() + ' to ' + dateEnd.toISOString();
+            if (!firstrun) {
+                // info to send push notification if this isn't on first run/startup
+                log.info(logMessage)
+            } else {
+                log.debug(logMessage)
+            }
             let sched = {
                 start: dateStart.toISOString(),
                 end: dateEnd.toISOString(),
@@ -448,5 +455,5 @@ log.debug('Setting up cron job to check calendar');
     schedule.scheduleJob(config.get('cron_schedule'), async () => {
         await getSchedules();
     });
-    await getSchedules();
+    await getSchedules(true);
 })()

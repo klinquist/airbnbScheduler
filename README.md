@@ -7,7 +7,9 @@ This runs on a raspberry pi in my house on the same network as the Hubitat.
 
 ## Installation & Usage
 
-* Git clone to a folder 
+* Install the Hubitat app 'Maker API'.  Make sure you give it access to your locks and modes, and make note of the hub's IP address and access token it provides.
+  ![](images/makerapi.png)
+* Git clone this repo to a folder 
 * Enter that folder and run `npm install`
 * Edit the `config/default.json` to fit your needs.  Generate a pushover.net app & user token for push notifications.
 * Run `node index.js`.  
@@ -38,6 +40,7 @@ I always recommend putting a backup code into the lock in one of its permanent s
 
 ## Changelog
 
+* 0.1.7: Also send notifications for new schedules found (not part of initial startup)
 * 0.1.6: Bug related to checking if a date is in the past when it occurs today
 * 0.0.5: Another quick bug fix related to the same as below.
 * 0.0.4: Fix to removing deleted schedules over and over again
@@ -52,7 +55,7 @@ I always recommend putting a backup code into the lock in one of its permanent s
  
 The MIT License (MIT)
 
-Copyright (c) 2022 Kristopher Linquist
+Copyright (c) 2023 Kristopher Linquist
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
