@@ -108,7 +108,11 @@ const setLockCode = async (phoneNumber, reservationNumber) => {
 
     const serialLoopFlow = async (locks) => {
         for (const lock in locks) {
-            await setLockWithRetry(locks[lock], lockCodeBody, phoneNumber)
+            try {
+                await setLockWithRetry(locks[lock], lockCodeBody, phoneNumber)
+            } catch (e) {
+                log.error(`Error setting code on lock ${locks[lock].name}: ${e}`)
+            }
         }
     }
     await serialLoopFlow(locks)
@@ -141,7 +145,7 @@ const setLockWithRetry = async (lock, lockCodeBody, phoneNumber) => {
             }
             attrib = attrib[LOCK_CODE_SLOT] && attrib[LOCK_CODE_SLOT].code
             if (attrib !== phoneNumber) {
-                log.error(`Lock code not set correctly on lock ${lock.name}, retrying`)
+                log.error(`Lock code not set correctly on lock ${lock.name}, retrying a total of 3x`)
                 throw new Error()
             }
             log.info(`Successfully set code ${phoneNumber} on lock ${lock.label}`)
