@@ -346,6 +346,10 @@ const getSchedules = async (firstRun) => {
         throw new Error(err)
     })
 
+    if (!events) {
+        return log.error('No events found')
+    }
+
     let currentCode = []
     const currentSchedules = [];
     for (let i = 0; i < events.length; i++) {
