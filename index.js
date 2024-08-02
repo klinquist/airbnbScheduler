@@ -128,10 +128,10 @@ const setLockWithRetry = async (lock, lockCodeBody, phoneNumber) => {
             }).catch((err) => {
                 log.debug(`Error setting code on lock ${lock.name}: ${err}`)
             })
-            log.debug('Waiting 5 seconds and asking the lock to refresh')
-            await sleep(5000)
+            log.debug('Waiting 10 seconds and asking the lock to refresh')
+            await sleep(10000)
             await (getHubitatUrl(`devices/${lock.id}/refresh`))
-            await sleep(5000)
+            await sleep(10000)
             log.debug('Getting lock codes')
             let lockData = await axios.get(getHubitatUrl(`devices/${lock.id}/getCodes`)).catch((err) => {
                 log.error(err)
@@ -151,7 +151,7 @@ const setLockWithRetry = async (lock, lockCodeBody, phoneNumber) => {
             log.info(`Successfully set code ${phoneNumber} on lock ${lock.label}`)
         }, {
             retries: 3,
-            minTimeout: 60000
+            minTimeout: 30000
         }
     );
 }
