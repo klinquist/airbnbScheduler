@@ -64,6 +64,32 @@ const log = {
   },
 };
 
+const formatDate = (date) => {
+  const now = moment();
+  const targetDate = moment(date).tz(config.get("timezone"));
+  const diffDays = targetDate.diff(now, "days");
+
+  // If it's today
+  if (targetDate.isSame(now, "day")) {
+    return `today at ${targetDate.format("h:mm A")}`;
+  }
+
+  // If it's tomorrow
+  if (diffDays === 1) {
+    return `tomorrow at ${targetDate.format("h:mm A")}`;
+  }
+
+  // If it's within the next week
+  if (diffDays > 0 && diffDays <= 7) {
+    return `this ${targetDate.format("dddd")} at ${targetDate.format(
+      "h:mm A"
+    )}`;
+  }
+
+  // For dates further in the future, show the full date
+  return targetDate.format("MMM D, YYYY h:mm A z");
+};
+
 const setMode = async (modeName) => {
   let modes;
   try {
@@ -304,7 +330,9 @@ const dateInPast = function (firstDate) {
 const startSchedule = (sched) => {
   if (!dateInPast(new Date(sched.start))) {
     log.debug(
-      `Scheduling checkin actions at ${sched.start} for reservation ${sched.reservationNumber}`
+      `Scheduling check-in actions for reservation ${
+        sched.reservationNumber
+      } at ${formatDate(sched.start)}`
     );
     sched.startSchedule = schedule.scheduleJob(
       new Date(sched.start),
@@ -321,7 +349,9 @@ const startSchedule = (sched) => {
 
   if (!dateInPast(new Date(sched.end))) {
     log.debug(
-      `Scheduling checkout actions at ${sched.end} for reservation ${sched.reservationNumber}`
+      `Scheduling check-out actions for reservation ${
+        sched.reservationNumber
+      } at ${formatDate(sched.end)}`
     );
     sched.endSchedule = schedule.scheduleJob(
       new Date(sched.end),
@@ -339,7 +369,9 @@ const startSchedule = (sched) => {
   if (sched.arriving) {
     if (!dateInPast(new Date(sched.arriving))) {
       log.debug(
-        `Scheduling arriving soon actions at ${sched.arriving} for reservation ${sched.reservationNumber}`
+        `Scheduling arriving soon actions for reservation ${
+          sched.reservationNumber
+        } at ${formatDate(sched.arriving)}`
       );
       sched.arrivingSoonSchedule = schedule.scheduleJob(
         new Date(sched.arriving),
@@ -408,18 +440,18 @@ const getSchedules = async (firstRun) => {
 
     // Skip if the reservation is in the past
     if (dateInPast(dateEnd)) {
-      log.debug(`Skipping past reservation ${reservationNumber}`);
+      log.debug(
+        `Skipping past reservation ${reservationNumber} (ended ${formatDate(
+          dateEnd
+        )})`
+      );
       continue;
     }
 
     if (!schedules[reservationNumber]) {
-      let logMessage =
-        "Scheduling new reservation " +
-        reservationNumber +
-        " for " +
-        dateStart.toISOString() +
-        " to " +
-        dateEnd.toISOString();
+      let logMessage = `New reservation ${reservationNumber} scheduled for ${formatDate(
+        dateStart
+      )} to ${formatDate(dateEnd)}`;
       if (!firstRun) {
         log.info(logMessage);
       } else {
@@ -442,9 +474,16 @@ const getSchedules = async (firstRun) => {
       schedules[reservationNumber].start !== dateStart.toISOString() ||
       schedules[reservationNumber].end !== dateEnd.toISOString()
     ) {
+      log.info(`Reservation ${reservationNumber} schedule changed!`);
       log.debug(
-        "Schedule for " + reservationNumber + " changed! Updating schedule"
+        `Previous schedule: ${formatDate(
+          schedules[reservationNumber].start
+        )} to ${formatDate(schedules[reservationNumber].end)}`
       );
+      log.debug(
+        `New schedule: ${formatDate(dateStart)} to ${formatDate(dateEnd)}`
+      );
+
       if (schedules[reservationNumber].arrivingSoonSchedule)
         schedules[reservationNumber].arrivingSoonSchedule.cancel();
       if (schedules[reservationNumber].startSchedule)
@@ -473,9 +512,7 @@ const getSchedules = async (firstRun) => {
   // Check for schedules that need to be removed!
   for (const k in schedules) {
     if (currentSchedules.indexOf(k) == -1) {
-      log.info(
-        "Reservation " + k + " has been deleted, removing the schedule!"
-      );
+      log.info(`Reservation ${k} has been deleted, removing the schedule!`);
       // Cancel all scheduled jobs
       if (schedules[k].arrivingSoonSchedule)
         schedules[k].arrivingSoonSchedule.cancel();
@@ -495,9 +532,7 @@ const getSchedules = async (firstRun) => {
           )
         ) {
           log.info(
-            "Reservation " +
-              k +
-              " is currently active but has been canceled, removing lock code and running checkout actions"
+            `Reservation ${k} is currently active but has been canceled, removing lock code and running checkout actions`
           );
           runCheckOutActions(
             schedules[k].phoneNumber,
@@ -506,17 +541,17 @@ const getSchedules = async (firstRun) => {
           delete schedules[k];
         } else {
           log.info(
-            "Reservation " +
-              k +
-              " is currently active but has been canceled, check out actions will run at normally scheduled time"
+            `Reservation ${k} is currently active but has been canceled, check out actions will run at normally scheduled time (${formatDate(
+              schedules[k].end
+            )})`
           );
         }
       } else {
         // If the reservation hasn't started yet, just delete it without running any actions
         log.info(
-          "Reservation " +
-            k +
-            " was cancelled before it started, removing schedule without running any actions"
+          `Reservation ${k} was cancelled before it started (was scheduled for ${formatDate(
+            schedules[k].start
+          )}), removing schedule without running any actions`
         );
         delete schedules[k];
       }
@@ -526,7 +561,9 @@ const getSchedules = async (firstRun) => {
   if (currentCode.length == 0) {
     log.debug("No active codes at this time");
   } else {
-    log.debug("The following code should be active: " + currentCode[0]);
+    log.debug(
+      `Active code ${currentCode[0]} is programmed for current guest (reservation ${currentCode[1]})`
+    );
   }
 };
 
