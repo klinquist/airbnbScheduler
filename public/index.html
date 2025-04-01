@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Home Visit Scheduler</title>
+        <link
+            href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css"
+            rel="stylesheet"
+        />
+        <link
+            rel="stylesheet"
+            href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css"
+        />
+        <style>
+            .visit-card {
+                margin-bottom: 1rem;
+                transition: all 0.3s ease;
+            }
+            .visit-card:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            }
+            .delete-btn {
+                opacity: 0;
+                transition: opacity 0.3s ease;
+            }
+            .visit-card:hover .delete-btn {
+                opacity: 1;
+            }
+            .alert {
+                display: none;
+                margin-top: 1rem;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container py-5">
+            <h1 class="mb-4">Home Visit Scheduler</h1>
+
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">Schedule a Visit</h5>
+                    <form id="visitForm">
+                        <div class="mb-3">
+                            <label for="visitDate" class="form-label"
+                                >Date & Time</label
+                            >
+                            <input
+                                type="text"
+                                class="form-control"
+                                id="visitDate"
+                                required
+                            />
+                        </div>
+                        <div class="mb-3">
+                            <label for="mode" class="form-label">Mode</label>
+                            <select class="form-select" id="mode" required>
+                                <option value="">Select a mode...</option>
+                                <option value="Home">Home</option>
+                                <option value="Away">Away</option>
+                                <option value="Night">Night</option>
+                                <option value="ArrivingSoon">
+                                    Arriving Soon
+                                </option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            Schedule Visit
+                        </button>
+                    </form>
+                    <div
+                        id="successAlert"
+                        class="alert alert-success"
+                        role="alert"
+                    >
+                        Visit scheduled successfully!
+                    </div>
+                    <div
+                        id="errorAlert"
+                        class="alert alert-danger"
+                        role="alert"
+                    >
+                        Failed to schedule visit. Please try again.
+                    </div>
+                </div>
+            </div>
+
+            <h2 class="mb-3">Scheduled Visits</h2>
+            <div id="visitsList"></div>
+        </div>
+
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/moment-timezone/0.5.43/moment-timezone-with-data.min.js"></script>
+        <script>
+            // Get the configured timezone from the server
+            let configuredTimezone;
+            let datePicker;
+            fetch('/api/timezone')
+                .then((response) => response.json())
+                .then((data) => {
+                    configuredTimezone = data.timezone;
+                    // Initialize date picker with the configured timezone
+                    datePicker = flatpickr('#visitDate', {
+                        enableTime: true,
+                        minDate: 'today',
+                        time_24hr: false,
+                        dateFormat: 'Y-m-d h:i K',
+                        defaultHour: 12,
+                        defaultMinute: 0,
+                        onChange: function (selectedDates) {
+                            if (selectedDates.length > 0) {
+                                const date = moment(selectedDates[0]).tz(
+                                    configuredTimezone
+                                );
+                                this.input.value =
+                                    date.format('YYYY-MM-DD h:mm A');
+                            }
+                        },
+                    });
+                })
+                .catch((error) => {
+                    console.error('Failed to get timezone:', error);
+                    showError('Failed to load timezone configuration');
+                });
+
+            function showSuccess(message) {
+                const alert = document.getElementById('successAlert');
+                alert.textContent = message;
+                alert.style.display = 'block';
+                setTimeout(() => {
+                    alert.style.display = 'none';
+                }, 3000);
+            }
+
+            function showError(message) {
+                const alert = document.getElementById('errorAlert');
+                alert.textContent = message;
+                alert.style.display = 'block';
+                setTimeout(() => {
+                    alert.style.display = 'none';
+                }, 3000);
+            }
+
+            // Load and display visits
+            async function loadVisits() {
+                try {
+                    const response = await fetch('/api/visits');
+                    if (!response.ok) {
+                        throw new Error('Failed to load visits');
+                    }
+                    const visits = await response.json();
+                    displayVisits(visits);
+                } catch (error) {
+                    console.error('Failed to load visits:', error);
+                    showError('Failed to load scheduled visits');
+                }
+            }
+
+            function displayVisits(visits) {
+                const visitsList = document.getElementById('visitsList');
+                visitsList.innerHTML = '';
+
+                visits.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+                visits.forEach((visit) => {
+                    const date = moment.utc(visit.date).tz(configuredTimezone);
+                    const card = document.createElement('div');
+                    card.className = 'card visit-card';
+                    card.innerHTML = `
+                    <div class="card-body d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="card-title">${date.format(
+                                'MMM D, YYYY h:mm A z'
+                            )}</h5>
+                            <p class="card-text mb-0">Mode: ${visit.mode}</p>
+                        </div>
+                        <button class="btn btn-danger delete-btn" onclick="deleteVisit('${
+                            visit.id
+                        }')">
+                            Delete
+                        </button>
+                    </div>
+                `;
+                    visitsList.appendChild(card);
+                });
+            }
+
+            // Handle form submission
+            document
+                .getElementById('visitForm')
+                .addEventListener('submit', async (e) => {
+                    e.preventDefault();
+
+                    const dateInput =
+                        document.getElementById('visitDate').value;
+                    const mode = document.getElementById('mode').value;
+
+                    if (!dateInput || !mode) {
+                        showError('Please fill in all fields');
+                        return;
+                    }
+
+                    try {
+                        // Parse the date in the configured timezone
+                        const date = moment.tz(
+                            dateInput,
+                            'YYYY-MM-DD h:mm A',
+                            configuredTimezone
+                        );
+
+                        if (!date.isValid()) {
+                            throw new Error('Invalid date format');
+                        }
+
+                        // Convert to UTC for storage
+                        const utcDate = date.utc().toISOString();
+
+                        const response = await fetch('/api/visits', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({ date: utcDate, mode }),
+                        });
+
+                        if (!response.ok) {
+                            throw new Error('Failed to schedule visit');
+                        }
+
+                        const result = await response.json();
+                        document.getElementById('visitForm').reset();
+                        datePicker.clear();
+                        showSuccess('Visit scheduled successfully!');
+                        loadVisits();
+                    } catch (error) {
+                        console.error('Failed to schedule visit:', error);
+                        showError(
+                            'Failed to schedule visit. Please try again.'
+                        );
+                    }
+                });
+
+            // Handle visit deletion
+            async function deleteVisit(id) {
+                try {
+                    const response = await fetch(`/api/visits/${id}`, {
+                        method: 'DELETE',
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Failed to delete visit');
+                    }
+
+                    showSuccess('Visit deleted successfully!');
+                    loadVisits();
+                } catch (error) {
+                    console.error('Failed to delete visit:', error);
+                    showError('Failed to delete visit. Please try again.');
+                }
+            }
+
+            // Load visits when page loads
+            loadVisits();
+        </script>
+    </body>
+</html>

@@ -1,21 +1,22 @@
 {
-  "name": "airbnbscheduler",
-  "version": "0.1.11",
-  "description": "Hubitat Airbnb Lock Coder.  Automatically set guest lock codes & modes on checkin/checkout.",
+  "name": "airbnbScheduler",
+  "version": "1.0.0",
+  "description": "Automatically program smart locks and set Hubitat modes based on Airbnb calendar",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node index.js",
+    "web": "node server.js"
   },
   "author": "Kris Linquist <kris@linquist.net>",
   "license": "MIT",
   "dependencies": {
-    "async": "^2.6.2",
-    "async-retry": "^1.3.3",
-    "axios": "^0.27.2",
-    "config": "^3.0.1",
+    "axios": "^1.6.7",
+    "config": "^3.3.11",
+    "express": "^4.18.2",
     "ical": "^0.8.0",
-    "moment-timezone": "^0.5.23",
-    "node-schedule": "^2.0.0",
-    "pushover-notifications": "^1.2.2"
+    "moment-timezone": "^0.5.45",
+    "node-schedule": "^2.1.1",
+    "pushover-notifications": "^1.2.0",
+    "async-retry": "^1.3.3"
   }
 }

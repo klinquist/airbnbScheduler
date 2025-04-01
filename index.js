@@ -4,7 +4,8 @@ const ical = require("ical"),
   moment = require("moment-timezone"),
   config = require("config"),
   schedule = require("node-schedule"),
-  retry = require("async-retry");
+  retry = require("async-retry"),
+  fs = require("fs").promises;
 
 let pushover, p;
 if (config.has("pushover")) {
@@ -567,11 +568,157 @@ const getSchedules = async (firstRun) => {
   }
 };
 
+const SCHEDULED_VISITS_FILE = 'scheduled_visits.json';
+const scheduledVisitJobs = new Map(); // Store cron jobs for scheduled visits
+
+// Function to schedule a visit
+const scheduleVisit = (visit) => {
+    log.debug(`Scheduling visit ${visit.id} for ${moment(visit.date).tz(config.get("timezone")).format("MMM D, YYYY h:mm A z")}`);
+    
+    // Cancel existing job if it exists
+    if (scheduledVisitJobs.has(visit.id)) {
+        log.debug(`Cancelling existing job for visit ${visit.id}`);
+        scheduledVisitJobs.get(visit.id).cancel();
+        scheduledVisitJobs.delete(visit.id);
+    }
+
+    // Create new job
+    const visitDate = moment(visit.date).tz(config.get("timezone")).toDate();
+    const job = schedule.scheduleJob(visitDate, async () => {
+        try {
+            log.info(`Executing scheduled visit ${visit.id} - Setting mode to ${visit.mode}`);
+            await setMode(visit.mode);
+            log.info(`Successfully set mode to ${visit.mode} for scheduled visit at ${moment(visitDate).format("MMM D, YYYY h:mm A z")}`);
+            
+            // Remove the visit from the file
+            const visits = await readScheduledVisits();
+            const updatedVisits = visits.filter(v => v.id !== visit.id);
+            await writeScheduledVisits(updatedVisits);
+            log.debug(`Removed completed visit ${visit.id} from storage`);
+            
+            // Remove the job from our map
+            scheduledVisitJobs.delete(visit.id);
+            log.debug(`Cleaned up job for visit ${visit.id}`);
+        } catch (err) {
+            log.error(`Error executing scheduled visit ${visit.id}: ${err}`);
+        }
+    });
+
+    scheduledVisitJobs.set(visit.id, job);
+    log.debug(`Successfully scheduled job for visit ${visit.id}`);
+};
+
+// Function to read scheduled visits
+const readScheduledVisits = async () => {
+    try {
+        log.debug('Reading scheduled visits from file...');
+        const data = await fs.readFile(SCHEDULED_VISITS_FILE, 'utf8');
+        const visits = JSON.parse(data);
+        log.debug(`Read ${visits.length} scheduled visits from file`);
+        return visits;
+    } catch (error) {
+        if (error.code === 'ENOENT') {
+            log.debug('No scheduled visits file found, returning empty array');
+            return [];
+        }
+        log.error(`Error reading scheduled visits: ${error}`);
+        throw error;
+    }
+};
+
+// Function to write scheduled visits
+const writeScheduledVisits = async (visits) => {
+    try {
+        log.debug(`Writing ${visits.length} scheduled visits to file`);
+        await fs.writeFile(SCHEDULED_VISITS_FILE, JSON.stringify(visits, null, 2));
+        log.debug('Successfully wrote scheduled visits to file');
+    } catch (error) {
+        log.error(`Error writing scheduled visits: ${error}`);
+        throw error;
+    }
+};
+
+// Function to initialize scheduled visits
+const initializeScheduledVisits = async () => {
+    try {
+        log.debug('Initializing scheduled visits...');
+        const visits = await readScheduledVisits();
+        const now = moment().tz(config.get("timezone"));
+        log.debug(`Current time: ${now.format("MMM D, YYYY h:mm A z")}`);
+
+        // Filter out past visits and schedule future ones
+        const futureVisits = visits.filter(visit => {
+            const visitDate = moment(visit.date).tz(config.get("timezone"));
+            const isFuture = visitDate.isAfter(now);
+            if (!isFuture) {
+                log.debug(`Filtering out past visit ${visit.id} scheduled for ${visitDate.format("MMM D, YYYY h:mm A z")}`);
+            }
+            return isFuture;
+        });
+
+        log.debug(`Found ${futureVisits.length} future visits to schedule`);
+
+        // Schedule all future visits
+        futureVisits.forEach(visit => {
+            scheduleVisit(visit);
+        });
+
+        // Update the file to only contain future visits
+        await writeScheduledVisits(futureVisits);
+        log.debug('Successfully initialized scheduled visits');
+    } catch (error) {
+        log.error(`Error initializing scheduled visits: ${error}`);
+    }
+};
+
+// Function to add a new scheduled visit
+const addScheduledVisit = async (visit) => {
+    try {
+        log.debug(`Adding new scheduled visit for ${moment(visit.date).tz(config.get("timezone")).format("MMM D, YYYY h:mm A z")}`);
+        const visits = await readScheduledVisits();
+        visit.id = Date.now().toString(); // Ensure visit has an ID
+        visits.push(visit);
+        await writeScheduledVisits(visits);
+        scheduleVisit(visit);
+        log.debug(`Successfully added and scheduled visit ${visit.id}`);
+        return visit;
+    } catch (error) {
+        log.error(`Error adding scheduled visit: ${error}`);
+        throw error;
+    }
+};
+
+// Function to delete a scheduled visit
+const deleteScheduledVisit = async (id) => {
+    try {
+        log.debug(`Deleting scheduled visit ${id}`);
+        const visits = await readScheduledVisits();
+        const updatedVisits = visits.filter(visit => visit.id !== id);
+        await writeScheduledVisits(updatedVisits);
+        
+        // Cancel the scheduled job if it exists
+        if (scheduledVisitJobs.has(id)) {
+            log.debug(`Cancelling job for visit ${id}`);
+            scheduledVisitJobs.get(id).cancel();
+            scheduledVisitJobs.delete(id);
+        }
+        log.debug(`Successfully deleted visit ${id}`);
+    } catch (error) {
+        log.error(`Error deleting scheduled visit: ${error}`);
+        throw error;
+    }
+};
+
 log.debug("Setting up cron job to check calendar");
 
 (async function () {
-  schedule.scheduleJob(config.get("cron_schedule"), async () => {
-    await getSchedules();
-  });
-  await getSchedules(true);
+    // Schedule the calendar check
+    schedule.scheduleJob(config.get("cron_schedule"), async () => {
+        await getSchedules();
+        await initializeScheduledVisits(); // Also reinitialize scheduled visits
+    });
+
+    // Initial setup
+    await getSchedules(true);
+    await initializeScheduledVisits();
 })();
