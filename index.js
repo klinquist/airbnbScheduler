@@ -1,11 +1,10 @@
-const { default: axios } = require("axios");
-const ical = require("ical"),
-  async = require("async"),
-  moment = require("moment-timezone"),
-  config = require("config"),
-  schedule = require("node-schedule"),
-  retry = require("async-retry"),
-  fs = require("fs").promises;
+const axios = require("axios");
+const ical = require("ical");
+const moment = require("moment-timezone");
+const config = require("config");
+const schedule = require("node-schedule");
+const retry = require("async-retry");
+const fs = require("fs").promises;
 
 let pushover, p;
 if (config.has("pushover")) {
@@ -91,28 +90,19 @@ const formatDate = (date) => {
   return targetDate.format("MMM D, YYYY h:mm A z");
 };
 
-const setMode = async (modeName) => {
-  let modes;
+const setMode = async (mode) => {
   try {
-    modes = await axios.get(getHubitatUrl("modes"));
-  } catch (err) {
-    throw new Error(err);
+    const response = await axios.post(
+      `http://${HUBITAT_IP}/apps/api/${config.get(
+        "hubitat.appId"
+      )}/setMode?access_token=${HUBITAT_ACCESS_TOKEN}&mode=${mode}`
+    );
+    log.info(`Set mode to ${mode}`);
+    return response.data;
+  } catch (error) {
+    log.error(`Error setting mode: ${error.message}`);
+    throw error;
   }
-
-  let mode = modes.data.find(
-    (n) => n.name.toUpperCase() == modeName.toUpperCase()
-  );
-  if (!mode) return log.error(`Could not find mode ${modeName}`);
-
-  if (mode.active) {
-    return log.info(`Mode ${modeName} is already active.`);
-  }
-  try {
-    await axios.get(getHubitatUrl(`modes/${mode.id}`));
-  } catch (e) {
-    throw new Error(err);
-  }
-  log.info(`Successfully set mode to ${modeName}`);
 };
 
 const setLockCode = async (phoneNumber, reservationNumber) => {
@@ -707,6 +697,16 @@ const deleteScheduledVisit = async (id) => {
         log.error(`Error deleting scheduled visit: ${error}`);
         throw error;
     }
+};
+
+// Export the functions for use by server.js
+module.exports = {
+    readScheduledVisits,
+    writeScheduledVisits,
+    initializeScheduledVisits,
+    addScheduledVisit,
+    deleteScheduledVisit,
+    scheduleVisit
 };
 
 log.debug("Setting up cron job to check calendar");
