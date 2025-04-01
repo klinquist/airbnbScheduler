@@ -145,21 +145,24 @@
             }
 
             // Load and display visits
-            async function loadVisits() {
+            async function loadScheduledVisits() {
                 try {
                     const response = await fetch('/api/visits');
                     if (!response.ok) {
-                        throw new Error('Failed to load visits');
+                        const errorData = await response.json();
+                        throw new Error(
+                            errorData.message || 'Failed to load visits'
+                        );
                     }
                     const visits = await response.json();
-                    displayVisits(visits);
+                    displayScheduledVisits(visits);
                 } catch (error) {
                     console.error('Failed to load visits:', error);
-                    showError('Failed to load scheduled visits');
+                    showError(`Failed to load visits: ${error.message}`);
                 }
             }
 
-            function displayVisits(visits) {
+            function displayScheduledVisits(visits) {
                 const visitsList = document.getElementById('visitsList');
                 visitsList.innerHTML = '';
 
@@ -193,53 +196,40 @@
                 .getElementById('visitForm')
                 .addEventListener('submit', async (e) => {
                     e.preventDefault();
-
-                    const dateInput =
-                        document.getElementById('visitDate').value;
-                    const mode = document.getElementById('mode').value;
-
-                    if (!dateInput || !mode) {
-                        showError('Please fill in all fields');
-                        return;
-                    }
-
                     try {
-                        // Parse the date in the configured timezone
-                        const date = moment.tz(
-                            dateInput,
-                            'YYYY-MM-DD h:mm A',
-                            configuredTimezone
-                        );
+                        const date = datePicker.selectedDates[0];
+                        const mode = document.getElementById('mode').value;
 
-                        if (!date.isValid()) {
-                            throw new Error('Invalid date format');
+                        if (!date) {
+                            throw new Error('Please select a date');
                         }
-
-                        // Convert to UTC for storage
-                        const utcDate = date.utc().toISOString();
 
                         const response = await fetch('/api/visits', {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
                             },
-                            body: JSON.stringify({ date: utcDate, mode }),
+                            body: JSON.stringify({
+                                date: date.toISOString(),
+                                mode: mode,
+                            }),
                         });
 
                         if (!response.ok) {
-                            throw new Error('Failed to schedule visit');
+                            const errorData = await response.json();
+                            throw new Error(
+                                errorData.message || 'Failed to schedule visit'
+                            );
                         }
 
-                        const result = await response.json();
-                        document.getElementById('visitForm').reset();
+                        const visit = await response.json();
+                        console.log('Successfully scheduled visit:', visit);
                         datePicker.clear();
-                        showSuccess('Visit scheduled successfully!');
-                        loadVisits();
+                        loadScheduledVisits();
+                        showSuccess('Visit scheduled successfully');
                     } catch (error) {
                         console.error('Failed to schedule visit:', error);
-                        showError(
-                            'Failed to schedule visit. Please try again.'
-                        );
+                        showError(`Failed to schedule visit: ${error.message}`);
                     }
                 });
 
@@ -251,19 +241,22 @@
                     });
 
                     if (!response.ok) {
-                        throw new Error('Failed to delete visit');
+                        const errorData = await response.json();
+                        throw new Error(
+                            errorData.message || 'Failed to delete visit'
+                        );
                     }
 
-                    showSuccess('Visit deleted successfully!');
-                    loadVisits();
+                    loadScheduledVisits();
+                    showSuccess('Visit deleted successfully');
                 } catch (error) {
                     console.error('Failed to delete visit:', error);
-                    showError('Failed to delete visit. Please try again.');
+                    showError(`Failed to delete visit: ${error.message}`);
                 }
             }
 
             // Load visits when page loads
-            loadVisits();
+            loadScheduledVisits();
         </script>
     </body>
 </html>

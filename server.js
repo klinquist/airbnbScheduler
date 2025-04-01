@@ -16,6 +16,16 @@ app.use((req, res, next) => {
     next();
 });
 
+// Error handling middleware
+app.use((err, req, res, next) => {
+    console.error('Unhandled error:', err);
+    res.status(500).json({
+        error: 'Internal Server Error',
+        message: err.message,
+        stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
+});
+
 // Routes
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -34,7 +44,11 @@ app.get('/api/visits', async (req, res) => {
         res.json(visits);
     } catch (error) {
         console.error('Error fetching scheduled visits:', error);
-        res.status(500).json({ error: 'Failed to read scheduled visits' });
+        res.status(500).json({
+            error: 'Failed to read scheduled visits',
+            message: error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
     }
 });
 
@@ -46,7 +60,11 @@ app.post('/api/visits', async (req, res) => {
         res.json(visit);
     } catch (error) {
         console.error('Error adding scheduled visit:', error);
-        res.status(500).json({ error: 'Failed to save scheduled visit' });
+        res.status(500).json({
+            error: 'Failed to save scheduled visit',
+            message: error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
     }
 });
 
@@ -58,7 +76,11 @@ app.delete('/api/visits/:id', async (req, res) => {
         res.json({ success: true });
     } catch (error) {
         console.error('Error deleting scheduled visit:', error);
-        res.status(500).json({ error: 'Failed to delete scheduled visit' });
+        res.status(500).json({
+            error: 'Failed to delete scheduled visit',
+            message: error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
     }
 });
 
@@ -68,4 +90,5 @@ const server = app.listen(port, '0.0.0.0', () => {
     console.log(`- Local: http://localhost:${port}`);
     console.log(`- Network: http://0.0.0.0:${port}`);
     console.log(`- Timezone: ${config.get('timezone')}`);
+    console.log(`- Environment: ${process.env.NODE_ENV || 'production'}`);
 }); 
