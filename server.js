@@ -63,6 +63,9 @@ app.delete('/api/visits/:id', async (req, res) => {
 });
 
 // Start the server
-app.listen(port, () => {
-    console.log(`Server running at http://localhost:${port}`);
+const server = app.listen(port, '0.0.0.0', () => {
+    console.log(`Server running at:`);
+    console.log(`- Local: http://localhost:${port}`);
+    console.log(`- Network: http://0.0.0.0:${port}`);
+    console.log(`- Timezone: ${config.get('timezone')}`);
 }); 
