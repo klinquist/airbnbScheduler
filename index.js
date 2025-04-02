@@ -805,7 +805,27 @@ app.get("/api/schedules", (req, res) => {
 
 // Get current active code
 app.get("/api/current-code", (req, res) => {
-  res.json({ currentCode: currentCode });
+  try {
+    let currentCode = [];
+    for (const k in schedules) {
+      if (
+        moment().isBetween(
+          new Date(schedules[k].start),
+          new Date(schedules[k].end)
+        )
+      ) {
+        currentCode = [
+          schedules[k].phoneNumber,
+          schedules[k].reservationNumber,
+        ];
+        break;
+      }
+    }
+    res.json({ currentCode });
+  } catch (error) {
+    log.error(`Error getting current code: ${error}`);
+    res.status(500).json({ error: "Failed to get current code" });
+  }
 });
 
 // Get all scheduled visits

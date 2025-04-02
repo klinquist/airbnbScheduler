@@ -5,250 +5,537 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Airbnb Lock Code Manager</title>
     <style>
-      body {
+      :root {
+        --primary-color: #2196f3;
+        --secondary-color: #1976d2;
+        --success-color: #4caf50;
+        --danger-color: #f44336;
+        --text-color: #333;
+        --bg-color: #f5f5f5;
+        --card-bg: #ffffff;
+        --border-color: #e0e0e0;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-          Oxygen, Ubuntu, Cantarell, sans-serif;
-        max-width: 1000px;
+          Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+      }
+
+      body {
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        line-height: 1.6;
+        padding: 20px;
+      }
+
+      .container {
+        max-width: 1200px;
         margin: 0 auto;
         padding: 20px;
-        background-color: #f5f5f5;
       }
-      .container {
-        background-color: white;
-        padding: 20px;
-        border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-      }
-      h1 {
-        color: #333;
-        margin-bottom: 20px;
-      }
-      .section {
+
+      .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
         margin-bottom: 30px;
       }
-      .section h2 {
-        color: #666;
-        font-size: 1.2em;
-        margin-bottom: 10px;
+
+      .header h1 {
+        color: var(--primary-color);
+        font-size: 2em;
+        font-weight: 600;
       }
-      .reservation,
-      .visit {
-        background-color: #f8f9fa;
-        padding: 15px;
-        margin-bottom: 10px;
-        border-radius: 4px;
-        border-left: 4px solid #007bff;
-      }
-      .active {
-        border-left-color: #28a745;
-      }
-      .code {
-        font-family: monospace;
-        font-size: 1.2em;
-        padding: 5px 10px;
-        background-color: #e9ecef;
-        border-radius: 4px;
-      }
-      .button {
-        background-color: #007bff;
+
+      .refresh-btn {
+        background-color: var(--primary-color);
         color: white;
         border: none;
         padding: 10px 20px;
-        border-radius: 4px;
+        border-radius: 5px;
         cursor: pointer;
         font-size: 1em;
-        margin-right: 10px;
+        transition: background-color 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 8px;
       }
-      .button:hover {
-        background-color: #0056b3;
+
+      .refresh-btn:hover {
+        background-color: var(--secondary-color);
       }
-      .button.delete {
-        background-color: #dc3545;
+
+      .section {
+        background: var(--card-bg);
+        border-radius: 10px;
+        padding: 25px;
+        margin-bottom: 25px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
       }
-      .button.delete:hover {
-        background-color: #c82333;
+
+      .section:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
       }
-      .form-group {
-        margin-bottom: 15px;
+
+      .section h2 {
+        color: var(--primary-color);
+        margin-bottom: 20px;
+        font-size: 1.5em;
+        font-weight: 600;
       }
-      .form-group label {
-        display: block;
-        margin-bottom: 5px;
-        color: #666;
+
+      .current-code {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        padding: 15px;
+        background: #e3f2fd;
+        border-radius: 8px;
+        margin-top: 15px;
       }
-      .form-group input {
-        width: 100%;
-        padding: 8px;
-        border: 1px solid #ddd;
-        border-radius: 4px;
+
+      .current-code span {
+        font-size: 1.2em;
+        font-weight: 500;
       }
+
       .tabs {
         display: flex;
+        gap: 10px;
         margin-bottom: 20px;
-        border-bottom: 2px solid #dee2e6;
+        border-bottom: 2px solid var(--border-color);
+        padding-bottom: 10px;
       }
-      .tab {
+
+      .tab-btn {
+        background: none;
+        border: none;
         padding: 10px 20px;
         cursor: pointer;
-        border: none;
-        background: none;
-        color: #666;
+        font-size: 1em;
+        color: var(--text-color);
+        border-radius: 5px;
+        transition: all 0.3s ease;
       }
-      .tab.active {
-        color: #007bff;
-        border-bottom: 2px solid #007bff;
-        margin-bottom: -2px;
+
+      .tab-btn.active {
+        background-color: var(--primary-color);
+        color: white;
       }
+
+      .tab-btn:hover:not(.active) {
+        background-color: rgba(33, 150, 243, 0.1);
+      }
+
       .tab-content {
         display: none;
       }
+
       .tab-content.active {
         display: block;
+        animation: fadeIn 0.3s ease;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .reservation-list {
+        display: grid;
+        gap: 15px;
+      }
+
+      .reservation-item {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 8px;
+        border-left: 4px solid var(--primary-color);
+      }
+
+      .reservation-item.active {
+        border-left-color: var(--success-color);
+        background: #e8f5e9;
+      }
+
+      .reservation-item h3 {
+        margin-bottom: 8px;
+        color: var(--primary-color);
+      }
+
+      .reservation-item p {
+        margin: 5px 0;
+        color: #666;
+      }
+
+      .form-group {
+        margin-bottom: 20px;
+      }
+
+      .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 500;
+        color: var(--text-color);
+      }
+
+      .form-group input,
+      .form-group select {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid var(--border-color);
+        border-radius: 5px;
+        font-size: 1em;
+        transition: border-color 0.3s ease;
+      }
+
+      .form-group input:focus,
+      .form-group select:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.1);
+      }
+
+      .submit-btn {
+        background-color: var(--success-color);
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 1em;
+        transition: background-color 0.3s ease;
+      }
+
+      .submit-btn:hover {
+        background-color: #388e3c;
+      }
+
+      .delete-btn {
+        background-color: var(--danger-color);
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 0.9em;
+        transition: background-color 0.3s ease;
+      }
+
+      .delete-btn:hover {
+        background-color: #d32f2f;
+      }
+
+      .mode-changes {
+        margin-top: 20px;
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 8px;
+      }
+
+      .mode-change {
+        display: grid;
+        grid-template-columns: 1fr 1fr auto;
+        gap: 15px;
+        align-items: center;
+        margin-bottom: 15px;
+        padding: 10px;
+        background: white;
+        border-radius: 5px;
+        border: 1px solid var(--border-color);
+      }
+
+      .add-mode-btn {
+        background-color: var(--primary-color);
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 0.9em;
+        transition: background-color 0.3s ease;
+        margin-top: 10px;
+      }
+
+      .add-mode-btn:hover {
+        background-color: var(--secondary-color);
+      }
+
+      .add-mode-btn:disabled {
+        background-color: #ccc;
+        cursor: not-allowed;
+      }
+
+      .config-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 20px;
+      }
+
+      .config-section {
+        background: #f8f9fa;
+        padding: 20px;
+        border-radius: 8px;
+      }
+
+      .config-section h3 {
+        color: var(--primary-color);
+        margin-bottom: 15px;
+        font-size: 1.2em;
+      }
+
+      .save-config-btn {
+        background-color: var(--success-color);
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 1em;
+        transition: background-color 0.3s ease;
+        margin-top: 20px;
+      }
+
+      .save-config-btn:hover {
+        background-color: #388e3c;
+      }
+
+      @media (max-width: 768px) {
+        .container {
+          padding: 10px;
+        }
+
+        .section {
+          padding: 15px;
+        }
+
+        .mode-change {
+          grid-template-columns: 1fr;
+        }
+
+        .config-grid {
+          grid-template-columns: 1fr;
+        }
       }
     </style>
   </head>
   <body>
     <div class="container">
-      <h1>Airbnb Lock Code Manager</h1>
+      <div class="header">
+        <h1>Airbnb Lock Code Manager</h1>
+        <button class="refresh-btn" onclick="refreshData()">
+          <span>🔄</span> Refresh
+        </button>
+      </div>
 
       <div class="section">
         <h2>Current Active Code</h2>
-        <div id="current-code">Loading...</div>
-      </div>
-
-      <div class="tabs">
-        <button class="tab active" onclick="showTab('airbnb')">
-          Airbnb Reservations
-        </button>
-        <button class="tab" onclick="showTab('visits')">Manual Visits</button>
-        <button class="tab" onclick="showTab('config')">Configuration</button>
-      </div>
-
-      <div id="airbnb-tab" class="tab-content active">
-        <div class="section">
-          <h2>Upcoming Airbnb Reservations</h2>
-          <div id="schedules">Loading...</div>
+        <div class="current-code">
+          <span id="currentCode">Loading...</span>
         </div>
       </div>
 
-      <div id="visits-tab" class="tab-content">
-        <div class="section">
-          <h2>Manual Visits</h2>
-          <div id="visits">Loading...</div>
+      <div class="section">
+        <div class="tabs">
+          <button class="tab-btn active" onclick="switchTab('airbnb')">
+            Airbnb Reservations
+          </button>
+          <button class="tab-btn" onclick="switchTab('visits')">
+            Manual Visits
+          </button>
+          <button class="tab-btn" onclick="switchTab('config')">
+            Configuration
+          </button>
         </div>
-        <div class="section">
-          <h2>Add New Visit</h2>
-          <form id="visit-form">
+
+        <div id="airbnb" class="tab-content active">
+          <div class="reservation-list" id="reservationList">
+            Loading reservations...
+          </div>
+        </div>
+
+        <div id="visits" class="tab-content">
+          <div class="reservation-list" id="visitList">Loading visits...</div>
+          <form id="visitForm" onsubmit="addVisit(event)">
             <div class="form-group">
-              <label for="name">Name</label>
-              <input type="text" id="name" required />
-            </div>
-            <div class="form-group">
-              <label for="phone">Phone Number (Optional)</label>
+              <label for="visitName">Visit Name</label>
               <input
                 type="text"
-                id="phone"
+                id="visitName"
+                required
+                placeholder="e.g., Cleaning Service"
+              />
+            </div>
+            <div class="form-group">
+              <label for="visitDate">Date</label>
+              <input type="date" id="visitDate" required />
+            </div>
+            <div class="form-group">
+              <label for="visitPhone">Phone Number (Optional)</label>
+              <input
+                type="tel"
+                id="visitPhone"
                 placeholder="Leave blank to skip lock coding"
               />
             </div>
-            <div id="mode-changes">
-              <div class="mode-change">
-                <h3>Mode Change #1</h3>
-                <div class="form-group">
-                  <label for="time1">Time</label>
-                  <input type="datetime-local" id="time1" required />
-                </div>
-                <div class="form-group">
-                  <label for="mode1">Mode</label>
-                  <select id="mode1" required>
-                    <option value="">Select a mode...</option>
+
+            <div class="mode-changes">
+              <h3>Mode Changes</h3>
+              <div id="modeChangesList">
+                <div class="mode-change">
+                  <input
+                    type="time"
+                    class="mode-time"
+                    required
+                    placeholder="Time"
+                  />
+                  <select class="mode-select" required>
                     <option value="checkin">Check-in Mode</option>
                     <option value="checkout">Check-out Mode</option>
                     <option value="arriving_soon">Arriving Soon Mode</option>
                   </select>
+                  <button
+                    type="button"
+                    class="delete-btn"
+                    onclick="removeModeChange(this)"
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+              <button
+                type="button"
+                class="add-mode-btn"
+                onclick="addModeChange()"
+                id="addModeBtn"
+              >
+                Add Mode Change
+              </button>
+            </div>
+
+            <button type="submit" class="submit-btn">Schedule Visit</button>
+          </form>
+        </div>
+
+        <div id="config" class="tab-content">
+          <form id="configForm" onsubmit="saveConfig(event)">
+            <div class="config-grid">
+              <div class="config-section">
+                <h3>Schedule Times</h3>
+                <div class="form-group">
+                  <label for="arrivalScheduleTime">Arrival Time</label>
+                  <input
+                    type="time"
+                    id="arrivalScheduleTime"
+                    required
+                    step="300"
+                  />
+                </div>
+                <div class="form-group">
+                  <label for="departureScheduleTime">Departure Time</label>
+                  <input
+                    type="time"
+                    id="departureScheduleTime"
+                    required
+                    step="300"
+                  />
+                </div>
+                <div class="form-group">
+                  <label for="arrivingSoonTime">Arriving Soon Time</label>
+                  <input
+                    type="time"
+                    id="arrivingSoonTime"
+                    required
+                    step="300"
+                  />
+                </div>
+                <div class="form-group">
+                  <label for="arrivingSoonDayOffset"
+                    >Arriving Soon Day Offset</label
+                  >
+                  <input
+                    type="number"
+                    id="arrivingSoonDayOffset"
+                    required
+                    min="0"
+                  />
+                </div>
+              </div>
+
+              <div class="config-section">
+                <h3>Mode Settings</h3>
+                <div class="form-group">
+                  <label for="checkin_mode">Check-in Mode</label>
+                  <input type="text" id="checkin_mode" required />
+                </div>
+                <div class="form-group">
+                  <label for="checkout_mode">Check-out Mode</label>
+                  <input type="text" id="checkout_mode" required />
+                </div>
+                <div class="form-group">
+                  <label for="arriving_soon_mode">Arriving Soon Mode</label>
+                  <input type="text" id="arriving_soon_mode" required />
+                </div>
+              </div>
+
+              <div class="config-section">
+                <h3>Hubitat Settings</h3>
+                <div class="form-group">
+                  <label for="hubitat_ip">Hubitat IP</label>
+                  <input type="text" id="hubitat_ip" required />
+                </div>
+                <div class="form-group">
+                  <label for="hubitat_maker_api_access_token">
+                    Hubitat Maker API Token
+                  </label>
+                  <input
+                    type="text"
+                    id="hubitat_maker_api_access_token"
+                    required
+                  />
+                </div>
+                <div class="form-group">
+                  <label for="lock_code_slot">Lock Code Slot</label>
+                  <input type="text" id="lock_code_slot" required />
+                </div>
+                <div class="form-group">
+                  <label for="locks_to_code"
+                    >Locks to Code (comma-separated)</label
+                  >
+                  <input type="text" id="locks_to_code" required />
+                </div>
+              </div>
+
+              <div class="config-section">
+                <h3>Pushover Settings</h3>
+                <div class="form-group">
+                  <label for="pushover_user">User Key</label>
+                  <input type="text" id="pushover_user" required />
+                </div>
+                <div class="form-group">
+                  <label for="pushover_token">App Token</label>
+                  <input type="text" id="pushover_token" required />
                 </div>
               </div>
             </div>
-            <button type="button" class="button" onclick="addModeChange()">
-              Add Another Mode Change
+
+            <button type="submit" class="save-config-btn">
+              Save Configuration
             </button>
-            <button type="submit" class="button">Add Visit</button>
           </form>
         </div>
       </div>
-
-      <div id="config-tab" class="tab-content">
-        <div class="section">
-          <h2>System Configuration</h2>
-          <form id="config-form">
-            <div class="form-group">
-              <label for="arrivalScheduleTime">Arrival Schedule Time</label>
-              <input type="time" id="arrivalScheduleTime" required />
-            </div>
-            <div class="form-group">
-              <label for="departureScheduleTime">Departure Schedule Time</label>
-              <input type="time" id="departureScheduleTime" required />
-            </div>
-            <div class="form-group">
-              <label for="arrivingSoonTime">Arriving Soon Time</label>
-              <input type="time" id="arrivingSoonTime" required />
-            </div>
-            <div class="form-group">
-              <label for="arrivingSoonDayOffset"
-                >Arriving Soon Day Offset</label
-              >
-              <input
-                type="number"
-                id="arrivingSoonDayOffset"
-                required
-                min="0"
-                max="7"
-              />
-            </div>
-            <div class="form-group">
-              <label for="checkin_mode">Check-in Mode</label>
-              <input type="text" id="checkin_mode" required />
-            </div>
-            <div class="form-group">
-              <label for="checkout_mode">Check-out Mode</label>
-              <input type="text" id="checkout_mode" required />
-            </div>
-            <div class="form-group">
-              <label for="arriving_soon_mode">Arriving Soon Mode</label>
-              <input type="text" id="arriving_soon_mode" required />
-            </div>
-            <div class="form-group">
-              <label for="hubitat_ip">Hubitat IP Address</label>
-              <input type="text" id="hubitat_ip" required />
-            </div>
-            <div class="form-group">
-              <label for="hubitat_maker_api_access_token"
-                >Hubitat Maker API Token</label
-              >
-              <input type="text" id="hubitat_maker_api_access_token" required />
-            </div>
-            <div class="form-group">
-              <label for="lock_code_slot">Lock Code Slot</label>
-              <input type="text" id="lock_code_slot" required />
-            </div>
-            <div class="form-group">
-              <label for="locks_to_code">Locks to Code (comma-separated)</label>
-              <input type="text" id="locks_to_code" required />
-            </div>
-            <div class="form-group">
-              <label for="pushover_user">Pushover User Key</label>
-              <input type="text" id="pushover_user" required />
-            </div>
-            <div class="form-group">
-              <label for="pushover_token">Pushover App Token</label>
-              <input type="text" id="pushover_token" required />
-            </div>
-            <button type="submit" class="button">Save Configuration</button>
-          </form>
-        </div>
-      </div>
-
-      <button class="button" onclick="refreshData()">Refresh Data</button>
     </div>
 
     <script>
@@ -267,30 +554,55 @@
         });
       }
 
-      function showTab(tabName) {
+      function switchTab(tabName) {
         // Update tab buttons
-        document.querySelectorAll(".tab").forEach((tab) => {
+        document.querySelectorAll(".tab-btn").forEach((tab) => {
           tab.classList.remove("active");
         });
         document
-          .querySelector(`.tab[onclick="showTab('${tabName}')"]`)
+          .querySelector(`.tab-btn[onclick="switchTab('${tabName}')"]`)
           .classList.add("active");
 
         // Update tab content
         document.querySelectorAll(".tab-content").forEach((content) => {
           content.classList.remove("active");
         });
-        document.getElementById(`${tabName}-tab`).classList.add("active");
+        document.getElementById(tabName).classList.add("active");
       }
 
       async function refreshData() {
         try {
           console.log("Refreshing data...");
-          await Promise.all([loadConfig(), loadSchedules(), loadVisits()]);
+          await Promise.all([
+            loadConfig(),
+            loadSchedules(),
+            loadVisits(),
+            loadCurrentCode(),
+          ]);
           console.log("Data refresh complete");
         } catch (error) {
           console.log("Error refreshing data:", error);
           alert("Failed to refresh data");
+        }
+      }
+
+      async function loadCurrentCode() {
+        try {
+          const response = await fetch("/api/current-code");
+          if (!response.ok) {
+            throw new Error("Failed to load current code");
+          }
+          const data = await response.json();
+          const currentCodeDiv = document.getElementById("currentCode");
+          if (data.currentCode && data.currentCode.length > 0) {
+            currentCodeDiv.textContent = `Code: ${data.currentCode[0]} (Reservation: ${data.currentCode[1]})`;
+          } else {
+            currentCodeDiv.textContent = "No active code";
+          }
+        } catch (error) {
+          console.log("Error loading current code:", error);
+          document.getElementById("currentCode").textContent =
+            "Error loading code";
         }
       }
 
@@ -302,7 +614,7 @@
           }
           const schedules = await response.json();
           console.log("Loaded schedules:", schedules);
-          const schedulesDiv = document.getElementById("schedules");
+          const schedulesDiv = document.getElementById("reservationList");
           if (Object.keys(schedules).length === 0) {
             schedulesDiv.innerHTML = "<div>No upcoming reservations</div>";
             return;
@@ -315,7 +627,7 @@
                 new Date(schedule.start) <= now &&
                 new Date(schedule.end) >= now;
               return `
-                                  <div class="reservation ${
+                                  <div class="reservation-item ${
                                     isActive ? "active" : ""
                                   }">
                                       <div><strong>Reservation:</strong> ${reservationNumber}</div>
@@ -354,7 +666,7 @@
           }
           const visits = await response.json();
           console.log("Loaded visits:", visits);
-          const visitsDiv = document.getElementById("visits");
+          const visitsDiv = document.getElementById("visitList");
           if (visits.length === 0) {
             visitsDiv.innerHTML = "<div>No manual visits scheduled</div>";
             return;
@@ -369,7 +681,7 @@
               );
 
               return `
-                <div class="visit ${isActive ? "active" : ""}">
+                <div class="reservation-item ${isActive ? "active" : ""}">
                   <div><strong>Name:</strong> ${visit.name}</div>
                   ${
                     visit.phone
@@ -388,7 +700,7 @@
                       )
                       .join("")}
                   </ul>
-                  <button class="button delete" onclick="deleteVisit('${
+                  <button class="delete-btn" onclick="deleteVisit('${
                     visit.id
                   }')">Delete</button>
                 </div>
@@ -404,7 +716,7 @@
 
       // Handle visit form submission
       document
-        .getElementById("visit-form")
+        .getElementById("visitForm")
         .addEventListener("submit", async (e) => {
           e.preventDefault();
 
@@ -420,8 +732,8 @@
           }
 
           const visit = {
-            name: document.getElementById("name").value,
-            phone: document.getElementById("phone").value || null,
+            name: document.getElementById("visitName").value,
+            phone: document.getElementById("visitPhone").value || null,
             modeChanges: modeChanges,
           };
 
@@ -438,23 +750,27 @@
               // Clear form
               e.target.reset();
               // Reset mode changes
-              const modeChangesDiv = document.getElementById("mode-changes");
+              const modeChangesDiv = document.getElementById("modeChangesList");
               modeChangesDiv.innerHTML = `
                 <div class="mode-change">
-                  <h3>Mode Change #1</h3>
-                  <div class="form-group">
-                    <label for="time1">Time</label>
-                    <input type="datetime-local" id="time1" required />
-                  </div>
-                  <div class="form-group">
-                    <label for="mode1">Mode</label>
-                    <select id="mode1" required>
-                      <option value="">Select a mode...</option>
-                      <option value="checkin">Check-in Mode</option>
-                      <option value="checkout">Check-out Mode</option>
-                      <option value="arriving_soon">Arriving Soon Mode</option>
-                    </select>
-                  </div>
+                  <input
+                    type="time"
+                    class="mode-time"
+                    required
+                    placeholder="Time"
+                  />
+                  <select class="mode-select" required>
+                    <option value="checkin">Check-in Mode</option>
+                    <option value="checkout">Check-out Mode</option>
+                    <option value="arriving_soon">Arriving Soon Mode</option>
+                  </select>
+                  <button
+                    type="button"
+                    class="delete-btn"
+                    onclick="removeModeChange(this)"
+                  >
+                    Remove
+                  </button>
                 </div>
               `;
               // Refresh data
@@ -469,7 +785,7 @@
         });
 
       function addModeChange() {
-        const modeChangesDiv = document.getElementById("mode-changes");
+        const modeChangesDiv = document.getElementById("modeChangesList");
         const currentCount = modeChangesDiv.children.length;
 
         if (currentCount >= 3) {
@@ -480,23 +796,24 @@
         const newModeChange = document.createElement("div");
         newModeChange.className = "mode-change";
         newModeChange.innerHTML = `
-          <h3>Mode Change #${currentCount + 1}</h3>
-          <div class="form-group">
-            <label for="time${currentCount + 1}">Time</label>
-            <input type="datetime-local" id="time${
-              currentCount + 1
-            }" required />
-          </div>
-          <div class="form-group">
-            <label for="mode${currentCount + 1}">Mode</label>
-            <select id="mode${currentCount + 1}" required>
-              <option value="">Select a mode...</option>
-              <option value="checkin">Check-in Mode</option>
-              <option value="checkout">Check-out Mode</option>
-              <option value="arriving_soon">Arriving Soon Mode</option>
-            </select>
-          </div>
-          <button type="button" class="button delete" onclick="this.parentElement.remove()">Remove</button>
+          <input
+            type="time"
+            class="mode-time"
+            required
+            placeholder="Time"
+          />
+          <select class="mode-select" required>
+            <option value="checkin">Check-in Mode</option>
+            <option value="checkout">Check-out Mode</option>
+            <option value="arriving_soon">Arriving Soon Mode</option>
+          </select>
+          <button
+            type="button"
+            class="delete-btn"
+            onclick="removeModeChange(this)"
+          >
+            Remove
+          </button>
         `;
         modeChangesDiv.appendChild(newModeChange);
       }
@@ -616,7 +933,7 @@
 
       // Handle config form submission
       document
-        .getElementById("config-form")
+        .getElementById("configForm")
         .addEventListener("submit", async (e) => {
           e.preventDefault();
 
