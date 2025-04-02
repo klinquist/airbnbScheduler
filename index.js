@@ -986,7 +986,7 @@ app.delete("/api/visits/:id", async (req, res) => {
 // Config management endpoints
 app.get("/api/config", async (req, res) => {
   try {
-    log.info("Loading configuration...");
+    log.debug("Loading configuration...");
     const configData = {
       arrivalScheduleTime: config.get("arrivalScheduleTime"),
       departureScheduleTime: config.get("departureScheduleTime"),
@@ -1003,7 +1003,7 @@ app.get("/api/config", async (req, res) => {
       locks_to_code: config.get("locks_to_code"),
       pushover: config.get("pushover"),
     };
-    log.info("Configuration loaded successfully");
+    log.debug("Configuration loaded successfully");
     res.json(configData);
   } catch (error) {
     log.error(`Error reading config: ${error}`);
@@ -1069,11 +1069,11 @@ app.post("/api/config", async (req, res) => {
 // Start server
 const PORT = config.get("port") || 3000;
 const server = app.listen(PORT, "0.0.0.0", () => {
-  log.info(`Server running at:`);
-  log.info(`- Local: http://localhost:${PORT}`);
-  log.info(`- Network: http://0.0.0.0:${PORT}`);
-  log.info(`- Timezone: ${config.get("timezone")}`);
-  log.info(`- Environment: ${process.env.NODE_ENV || "production"}`);
+  log.debug(`Server running at:`);
+  log.debug(`- Local: http://localhost:${PORT}`);
+  log.debug(`- Network: http://0.0.0.0:${PORT}`);
+  log.debug(`- Timezone: ${config.get("timezone")}`);
+  log.debug(`- Environment: ${process.env.NODE_ENV || "production"}`);
   initFileWatcher();
 });
 
