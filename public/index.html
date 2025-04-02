@@ -283,121 +283,123 @@
         document.getElementById(`${tabName}-tab`).classList.add("active");
       }
 
-      function refreshData() {
-        // Get timezone first
-        fetch("/api/timezone")
-          .then((response) => response.json())
-          .then((data) => {
-            timezone = data.timezone;
-          });
+      async function refreshData() {
+        try {
+          console.log("Refreshing data...");
+          await Promise.all([loadConfig(), loadSchedules(), loadVisits()]);
+          console.log("Data refresh complete");
+        } catch (error) {
+          console.log("Error refreshing data:", error);
+          alert("Failed to refresh data");
+        }
+      }
 
-        // Refresh current code
-        fetch("/api/current-code")
-          .then((response) => response.json())
-          .then((data) => {
-            const currentCodeDiv = document.getElementById("current-code");
-            if (data.currentCode && data.currentCode.length > 0) {
-              currentCodeDiv.innerHTML = `
-                                <div class="code">${data.currentCode[0]}</div>
-                                <div>Reservation: ${data.currentCode[1]}</div>
-                            `;
-            } else {
-              currentCodeDiv.innerHTML =
-                "<div>No active code at this time</div>";
-            }
-          });
+      async function loadSchedules() {
+        try {
+          const response = await fetch("/api/schedules");
+          if (!response.ok) {
+            throw new Error("Failed to load schedules");
+          }
+          const schedules = await response.json();
+          console.log("Loaded schedules:", schedules);
+          const schedulesDiv = document.getElementById("schedules");
+          if (Object.keys(schedules).length === 0) {
+            schedulesDiv.innerHTML = "<div>No upcoming reservations</div>";
+            return;
+          }
 
-        // Refresh schedules
-        fetch("/api/schedules")
-          .then((response) => response.json())
-          .then((schedules) => {
-            const schedulesDiv = document.getElementById("schedules");
-            if (Object.keys(schedules).length === 0) {
-              schedulesDiv.innerHTML = "<div>No upcoming reservations</div>";
-              return;
-            }
+          const now = new Date();
+          const scheduleHtml = Object.entries(schedules)
+            .map(([reservationNumber, schedule]) => {
+              const isActive =
+                new Date(schedule.start) <= now &&
+                new Date(schedule.end) >= now;
+              return `
+                                  <div class="reservation ${
+                                    isActive ? "active" : ""
+                                  }">
+                                      <div><strong>Reservation:</strong> ${reservationNumber}</div>
+                                      <div><strong>Code:</strong> ${
+                                        schedule.phoneNumber
+                                      }</div>
+                                      <div><strong>Check-in:</strong> ${formatDate(
+                                        schedule.start
+                                      )}</div>
+                                      <div><strong>Check-out:</strong> ${formatDate(
+                                        schedule.end
+                                      )}</div>
+                                      ${
+                                        schedule.arriving
+                                          ? `<div><strong>Arriving Soon:</strong> ${formatDate(
+                                              schedule.arriving
+                                            )}</div>`
+                                          : ""
+                                      }
+                                  </div>
+                              `;
+            })
+            .join("");
+          schedulesDiv.innerHTML = scheduleHtml;
+        } catch (error) {
+          console.log("Error loading schedules:", error);
+          alert("Failed to load schedules");
+        }
+      }
 
-            const now = new Date();
-            const scheduleHtml = Object.entries(schedules)
-              .map(([reservationNumber, schedule]) => {
-                const isActive =
-                  new Date(schedule.start) <= now &&
-                  new Date(schedule.end) >= now;
-                return `
-                                    <div class="reservation ${
-                                      isActive ? "active" : ""
-                                    }">
-                                        <div><strong>Reservation:</strong> ${reservationNumber}</div>
-                                        <div><strong>Code:</strong> ${
-                                          schedule.phoneNumber
-                                        }</div>
-                                        <div><strong>Check-in:</strong> ${formatDate(
-                                          schedule.start
-                                        )}</div>
-                                        <div><strong>Check-out:</strong> ${formatDate(
-                                          schedule.end
-                                        )}</div>
-                                        ${
-                                          schedule.arriving
-                                            ? `<div><strong>Arriving Soon:</strong> ${formatDate(
-                                                schedule.arriving
-                                              )}</div>`
-                                            : ""
-                                        }
-                                    </div>
-                                `;
-              })
-              .join("");
-            schedulesDiv.innerHTML = scheduleHtml;
-          });
+      async function loadVisits() {
+        try {
+          const response = await fetch("/api/visits");
+          if (!response.ok) {
+            throw new Error("Failed to load visits");
+          }
+          const visits = await response.json();
+          console.log("Loaded visits:", visits);
+          const visitsDiv = document.getElementById("visits");
+          if (visits.length === 0) {
+            visitsDiv.innerHTML = "<div>No manual visits scheduled</div>";
+            return;
+          }
 
-        // Refresh visits
-        fetch("/api/visits")
-          .then((response) => response.json())
-          .then((visits) => {
-            const visitsDiv = document.getElementById("visits");
-            if (visits.length === 0) {
-              visitsDiv.innerHTML = "<div>No manual visits scheduled</div>";
-              return;
-            }
+          const now = new Date();
+          const visitsHtml = visits
+            .map((visit) => {
+              const isActive = visit.modeChanges.some(
+                (change) =>
+                  new Date(change.time) <= now && new Date(change.time) >= now
+              );
 
-            const now = new Date();
-            const visitsHtml = visits
-              .map((visit) => {
-                const isActive = visit.modeChanges.some(
-                  (change) =>
-                    new Date(change.time) <= now && new Date(change.time) >= now
-                );
-
-                return `
-                  <div class="visit ${isActive ? "active" : ""}">
-                    <div><strong>Name:</strong> ${visit.name}</div>
-                    ${
-                      visit.phone
-                        ? `<div><strong>Phone:</strong> ${visit.phone}</div>`
-                        : ""
-                    }
-                    <div><strong>Mode Changes:</strong></div>
-                    <ul>
-                      ${visit.modeChanges
-                        .map(
-                          (change) => `
-                        <li>${formatDate(change.time)} - ${change.mode
-                            .replace("_", " ")
-                            .replace(/\b\w/g, (l) => l.toUpperCase())}</li>
-                      `
-                        )
-                        .join("")}
-                    </ul>
-                    <button class="button delete" onclick="deleteVisit('${
-                      visit.id
-                    }')">Delete</button>
-                  </div>
-                `;
-              })
-              .join("");
-            visitsDiv.innerHTML = visitsHtml;
-          });
+              return `
+                <div class="visit ${isActive ? "active" : ""}">
+                  <div><strong>Name:</strong> ${visit.name}</div>
+                  ${
+                    visit.phone
+                      ? `<div><strong>Phone:</strong> ${visit.phone}</div>`
+                      : ""
+                  }
+                  <div><strong>Mode Changes:</strong></div>
+                  <ul>
+                    ${visit.modeChanges
+                      .map(
+                        (change) => `
+                      <li>${formatDate(change.time)} - ${change.mode
+                          .replace("_", " ")
+                          .replace(/\b\w/g, (l) => l.toUpperCase())}</li>
+                    `
+                      )
+                      .join("")}
+                  </ul>
+                  <button class="button delete" onclick="deleteVisit('${
+                    visit.id
+                  }')">Delete</button>
+                </div>
+              `;
+            })
+            .join("");
+          visitsDiv.innerHTML = visitsHtml;
+        } catch (error) {
+          console.log("Error loading visits:", error);
+          alert("Failed to load visits");
+        }
       }
 
       // Handle visit form submission
@@ -461,7 +463,7 @@
               alert("Failed to add visit");
             }
           } catch (error) {
-            console.error("Error adding visit:", error);
+            console.log("Error adding visit:", error);
             alert("Failed to add visit");
           }
         });
@@ -506,6 +508,7 @@
         }
 
         try {
+          console.log("Deleting visit:", id);
           const response = await fetch(`/api/visits/${id}`, {
             method: "DELETE",
           });
@@ -516,7 +519,7 @@
             alert("Failed to delete visit");
           }
         } catch (error) {
-          console.error("Error deleting visit:", error);
+          console.log("Error deleting visit:", error);
           alert("Failed to delete visit");
         }
       }
@@ -532,7 +535,7 @@
             );
           }
           const config = await response.json();
-          console.log("Loaded config:", config); // Debug log
+          console.log("Loaded config:", config);
 
           // Convert times to 24-hour format for time inputs
           if (config.arrivalScheduleTime) {
@@ -589,7 +592,7 @@
               config.pushover.token;
           }
         } catch (error) {
-          console.error("Error loading config:", error);
+          console.log("Error loading config:", error);
           alert(`Failed to load configuration: ${error.message}`);
         }
       }
@@ -665,7 +668,7 @@
               alert("Failed to save configuration");
             }
           } catch (error) {
-            console.error("Error saving config:", error);
+            console.log("Error saving config:", error);
             alert("Failed to save configuration");
           }
         });
