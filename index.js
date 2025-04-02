@@ -22,15 +22,21 @@ const writeFileAsync = promisify(fs.writeFile);
 let pushover = null;
 if (config.has("pushover")) {
   try {
-    pushover = new Pushover({
+    const pushoverConfig = {
       user: config.get("pushover.user"),
       token: config.get("pushover.token"),
-      device: config.get("pushover.device"),
       debug: true,
       onerror: (error) => {
         console.error(`Pushover error: ${error}`);
       },
-    });
+    };
+
+    // Only add device if it's configured
+    if (config.has("pushover.device")) {
+      pushoverConfig.device = config.get("pushover.device");
+    }
+
+    pushover = new Pushover(pushoverConfig);
     console.log("Pushover initialized successfully");
   } catch (error) {
     console.error(`Failed to initialize Pushover: ${error}`);
