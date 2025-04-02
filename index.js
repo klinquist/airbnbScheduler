@@ -774,13 +774,13 @@ app.use(express.static(path.join(__dirname, "public")));
 // Request logging middleware
 app.use((req, res, next) => {
   const timestamp = new Date().toISOString();
-  console.log(`[${timestamp}] ${req.method} ${req.url}`);
+  log.debug(`${req.method} ${req.url}`);
   next();
 });
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error("Unhandled error:", err);
+  log.error(`Unhandled error: ${err.message}`);
   res.status(500).json({
     error: "Internal Server Error",
     message: err.message,
@@ -811,12 +811,12 @@ app.get("/api/current-code", (req, res) => {
 // Get all scheduled visits
 app.get("/api/visits", async (req, res) => {
   try {
-    console.log("Fetching all scheduled visits...");
+    log.debug("Fetching all scheduled visits...");
     const visits = await readScheduledVisits();
-    console.log(`Found ${visits.length} scheduled visits`);
+    log.debug(`Found ${visits.length} scheduled visits`);
     res.json(visits);
   } catch (error) {
-    console.error("Error fetching scheduled visits:", error);
+    log.error(`Error fetching scheduled visits: ${error.message}`);
     res.status(500).json({
       error: "Failed to read scheduled visits",
       message: error.message,
@@ -828,12 +828,12 @@ app.get("/api/visits", async (req, res) => {
 // Add a new scheduled visit
 app.post("/api/visits", async (req, res) => {
   try {
-    console.log("Adding new scheduled visit:", req.body);
+    log.debug("Adding new scheduled visit:", req.body);
     const visit = await addScheduledVisit(req.body);
-    console.log("Successfully added visit:", visit);
+    log.debug("Successfully added visit:", visit);
     res.json(visit);
   } catch (error) {
-    console.error("Error adding scheduled visit:", error);
+    log.error(`Error adding scheduled visit: ${error.message}`);
     res.status(500).json({
       error: "Failed to save scheduled visit",
       message: error.message,
@@ -845,12 +845,12 @@ app.post("/api/visits", async (req, res) => {
 // Delete a scheduled visit
 app.delete("/api/visits/:id", async (req, res) => {
   try {
-    console.log(`Deleting scheduled visit with ID: ${req.params.id}`);
+    log.debug(`Deleting scheduled visit with ID: ${req.params.id}`);
     await deleteScheduledVisit(req.params.id);
-    console.log("Successfully deleted visit");
+    log.debug("Successfully deleted visit");
     res.json({ success: true });
   } catch (error) {
-    console.error("Error deleting scheduled visit:", error);
+    log.error(`Error deleting scheduled visit: ${error.message}`);
     res.status(500).json({
       error: "Failed to delete scheduled visit",
       message: error.message,
@@ -945,11 +945,11 @@ app.post("/api/config", async (req, res) => {
 // Start server
 const PORT = config.get("port") || 3000;
 const server = app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Server running at:`);
-  console.log(`- Local: http://localhost:${PORT}`);
-  console.log(`- Network: http://0.0.0.0:${PORT}`);
-  console.log(`- Timezone: ${config.get("timezone")}`);
-  console.log(`- Environment: ${process.env.NODE_ENV || "production"}`);
+  log.info(`Server running at:`);
+  log.info(`- Local: http://localhost:${PORT}`);
+  log.info(`- Network: http://0.0.0.0:${PORT}`);
+  log.info(`- Timezone: ${config.get("timezone")}`);
+  log.info(`- Environment: ${process.env.NODE_ENV || "production"}`);
 });
 
 log.debug("Setting up cron job to check calendar");
