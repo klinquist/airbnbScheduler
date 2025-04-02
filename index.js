@@ -25,7 +25,7 @@ if (config.has("pushover")) {
     const pushoverConfig = {
       user: config.get("pushover.user"),
       token: config.get("pushover.token"),
-      debug: true,
+      debug: false, // Disable debug messages
       onerror: (error) => {
         console.error(`Pushover error: ${error}`);
       },
