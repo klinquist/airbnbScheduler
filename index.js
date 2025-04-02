@@ -5,6 +5,8 @@ const config = require("config");
 const schedule = require("node-schedule");
 const retry = require("async-retry");
 const fs = require("fs").promises;
+const express = require("express");
+const path = require("path");
 
 let pushover, p;
 if (config.has("pushover")) {
@@ -212,6 +214,7 @@ const removeLockCode = async (phoneNumber) => {
 };
 
 const schedules = {};
+let currentCode = [];
 
 const convertStrToDate = (str) => {
   str = str.replace(/\s/g, "").toUpperCase();
@@ -393,7 +396,6 @@ const getSchedules = async (firstRun) => {
     return log.error("No events found");
   }
 
-  let currentCode = [];
   const currentSchedules = [];
   for (let i = 0; i < events.length; i++) {
     const timeStart = convertStrToDate(config.get("arrivalScheduleTime"));
@@ -558,167 +560,408 @@ const getSchedules = async (firstRun) => {
   }
 };
 
-const SCHEDULED_VISITS_FILE = 'scheduled_visits.json';
+const SCHEDULED_VISITS_FILE = "scheduled_visits.json";
 const scheduledVisitJobs = new Map(); // Store cron jobs for scheduled visits
 
 // Function to schedule a visit
 const scheduleVisit = (visit) => {
-    log.debug(`Scheduling visit ${visit.id} for ${moment(visit.date).tz(config.get("timezone")).format("MMM D, YYYY h:mm A z")}`);
-    
-    // Cancel existing job if it exists
-    if (scheduledVisitJobs.has(visit.id)) {
-        log.debug(`Cancelling existing job for visit ${visit.id}`);
-        scheduledVisitJobs.get(visit.id).cancel();
-        scheduledVisitJobs.delete(visit.id);
+  log.debug(
+    `Scheduling visit ${visit.id} with ${visit.modeChanges.length} mode changes`
+  );
+
+  // Cancel existing jobs if they exist
+  if (scheduledVisitJobs.has(visit.id)) {
+    log.debug(`Cancelling existing jobs for visit ${visit.id}`);
+    scheduledVisitJobs.get(visit.id).forEach((job) => {
+      if (job) job.cancel();
+    });
+    scheduledVisitJobs.delete(visit.id);
+  }
+
+  // Create jobs for each mode change
+  const jobs = visit.modeChanges.map(async (change) => {
+    const changeDate = moment(change.time).tz(config.get("timezone")).toDate();
+
+    // Get the appropriate mode from config based on the selected mode
+    let mode;
+    switch (change.mode) {
+      case "checkin":
+        mode = config.get("checkin_mode");
+        break;
+      case "checkout":
+        mode = config.get("checkout_mode");
+        break;
+      case "arriving_soon":
+        mode = config.get("arriving_soon_mode");
+        break;
+      default:
+        throw new Error(`Invalid mode selected: ${change.mode}`);
     }
 
-    // Create new job
-    const visitDate = moment(visit.date).tz(config.get("timezone")).toDate();
-    const job = schedule.scheduleJob(visitDate, async () => {
-        try {
-            log.info(`Executing scheduled visit ${visit.id} - Setting mode to ${visit.mode}`);
-            await setMode(visit.mode);
-            log.info(`Successfully set mode to ${visit.mode} for scheduled visit at ${moment(visitDate).format("MMM D, YYYY h:mm A z")}`);
-            
-            // Remove the visit from the file
-            const visits = await readScheduledVisits();
-            const updatedVisits = visits.filter(v => v.id !== visit.id);
-            await writeScheduledVisits(updatedVisits);
-            log.debug(`Removed completed visit ${visit.id} from storage`);
-            
-            // Remove the job from our map
-            scheduledVisitJobs.delete(visit.id);
-            log.debug(`Cleaned up job for visit ${visit.id}`);
-        } catch (err) {
-            log.error(`Error executing scheduled visit ${visit.id}: ${err}`);
-        }
-    });
+    if (!mode) {
+      log.error(`No mode configured for ${change.mode}`);
+      return null;
+    }
 
-    scheduledVisitJobs.set(visit.id, job);
-    log.debug(`Successfully scheduled job for visit ${visit.id}`);
+    return schedule.scheduleJob(changeDate, async () => {
+      try {
+        log.info(
+          `Executing mode change for visit ${
+            visit.id
+          } - Setting mode to ${mode} at ${moment(changeDate).format(
+            "MMM D, YYYY h:mm A z"
+          )}`
+        );
+        await setMode(mode);
+        log.info(
+          `Successfully set mode to ${mode} for visit ${visit.id} at ${moment(
+            changeDate
+          ).format("MMM D, YYYY h:mm A z")}`
+        );
+
+        // If this is the first mode change and phone number is provided, set the lock code
+        if (visit.phone && change === visit.modeChanges[0]) {
+          try {
+            await setLockCode(visit.phone, `Manual Visit - ${visit.name}`);
+            log.info(`Successfully set lock code for visit ${visit.id}`);
+          } catch (err) {
+            log.error(`Error setting lock code for visit ${visit.id}: ${err}`);
+          }
+        }
+
+        // If this is the last mode change, clean up
+        if (change === visit.modeChanges[visit.modeChanges.length - 1]) {
+          // Remove the visit from the file
+          const visits = await readScheduledVisits();
+          const updatedVisits = visits.filter((v) => v.id !== visit.id);
+          await writeScheduledVisits(updatedVisits);
+          log.debug(`Removed completed visit ${visit.id} from storage`);
+
+          // Remove the jobs from our map
+          scheduledVisitJobs.delete(visit.id);
+          log.debug(`Cleaned up jobs for visit ${visit.id}`);
+        }
+      } catch (err) {
+        log.error(`Error executing mode change for visit ${visit.id}: ${err}`);
+      }
+    });
+  });
+
+  // Filter out null jobs and store the rest
+  const validJobs = jobs.filter((job) => job !== null);
+  scheduledVisitJobs.set(visit.id, validJobs);
+  log.debug(
+    `Successfully scheduled ${validJobs.length} jobs for visit ${visit.id}`
+  );
 };
 
 // Function to read scheduled visits
 const readScheduledVisits = async () => {
-    try {
-        log.debug('Reading scheduled visits from file...');
-        const data = await fs.readFile(SCHEDULED_VISITS_FILE, 'utf8');
-        const visits = JSON.parse(data);
-        log.debug(`Read ${visits.length} scheduled visits from file`);
-        return visits;
-    } catch (error) {
-        if (error.code === 'ENOENT') {
-            log.debug('No scheduled visits file found, returning empty array');
-            return [];
-        }
-        log.error(`Error reading scheduled visits: ${error}`);
-        throw error;
+  try {
+    log.debug("Reading scheduled visits from file...");
+    const data = await fs.readFile(SCHEDULED_VISITS_FILE, "utf8");
+    const visits = JSON.parse(data);
+    log.debug(`Read ${visits.length} scheduled visits from file`);
+    return visits;
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      log.debug("No scheduled visits file found, returning empty array");
+      return [];
     }
+    log.error(`Error reading scheduled visits: ${error}`);
+    throw error;
+  }
 };
 
 // Function to write scheduled visits
 const writeScheduledVisits = async (visits) => {
-    try {
-        log.debug(`Writing ${visits.length} scheduled visits to file`);
-        await fs.writeFile(SCHEDULED_VISITS_FILE, JSON.stringify(visits, null, 2));
-        log.debug('Successfully wrote scheduled visits to file');
-    } catch (error) {
-        log.error(`Error writing scheduled visits: ${error}`);
-        throw error;
-    }
+  try {
+    log.debug(`Writing ${visits.length} scheduled visits to file`);
+    await fs.writeFile(SCHEDULED_VISITS_FILE, JSON.stringify(visits, null, 2));
+    log.debug("Successfully wrote scheduled visits to file");
+  } catch (error) {
+    log.error(`Error writing scheduled visits: ${error}`);
+    throw error;
+  }
 };
 
 // Function to initialize scheduled visits
 const initializeScheduledVisits = async () => {
-    try {
-        log.debug('Initializing scheduled visits...');
-        const visits = await readScheduledVisits();
-        const now = moment().tz(config.get("timezone"));
-        log.debug(`Current time: ${now.format("MMM D, YYYY h:mm A z")}`);
+  try {
+    log.debug("Initializing scheduled visits...");
+    const visits = await readScheduledVisits();
+    const now = moment().tz(config.get("timezone"));
+    log.debug(`Current time: ${now.format("MMM D, YYYY h:mm A z")}`);
 
-        // Filter out past visits and schedule future ones
-        const futureVisits = visits.filter(visit => {
-            const visitDate = moment(visit.date).tz(config.get("timezone"));
-            const isFuture = visitDate.isAfter(now);
-            if (!isFuture) {
-                log.debug(`Filtering out past visit ${visit.id} scheduled for ${visitDate.format("MMM D, YYYY h:mm A z")}`);
-            }
-            return isFuture;
-        });
+    // Filter out past visits and schedule future ones
+    const futureVisits = visits.filter((visit) => {
+      const visitDate = moment(visit.date).tz(config.get("timezone"));
+      const isFuture = visitDate.isAfter(now);
+      if (!isFuture) {
+        log.debug(
+          `Filtering out past visit ${
+            visit.id
+          } scheduled for ${visitDate.format("MMM D, YYYY h:mm A z")}`
+        );
+      }
+      return isFuture;
+    });
 
-        log.debug(`Found ${futureVisits.length} future visits to schedule`);
+    log.debug(`Found ${futureVisits.length} future visits to schedule`);
 
-        // Schedule all future visits
-        futureVisits.forEach(visit => {
-            scheduleVisit(visit);
-        });
+    // Schedule all future visits
+    futureVisits.forEach((visit) => {
+      scheduleVisit(visit);
+    });
 
-        // Update the file to only contain future visits
-        await writeScheduledVisits(futureVisits);
-        log.debug('Successfully initialized scheduled visits');
-    } catch (error) {
-        log.error(`Error initializing scheduled visits: ${error}`);
-    }
+    // Update the file to only contain future visits
+    await writeScheduledVisits(futureVisits);
+    log.debug("Successfully initialized scheduled visits");
+  } catch (error) {
+    log.error(`Error initializing scheduled visits: ${error}`);
+  }
 };
 
 // Function to add a new scheduled visit
 const addScheduledVisit = async (visit) => {
-    try {
-        log.debug(`Adding new scheduled visit for ${moment(visit.date).tz(config.get("timezone")).format("MMM D, YYYY h:mm A z")}`);
-        const visits = await readScheduledVisits();
-        visit.id = Date.now().toString(); // Ensure visit has an ID
-        visits.push(visit);
-        await writeScheduledVisits(visits);
-        scheduleVisit(visit);
-        log.debug(`Successfully added and scheduled visit ${visit.id}`);
-        return visit;
-    } catch (error) {
-        log.error(`Error adding scheduled visit: ${error}`);
-        throw error;
-    }
+  try {
+    log.debug(
+      `Adding new scheduled visit for ${moment(visit.date)
+        .tz(config.get("timezone"))
+        .format("MMM D, YYYY h:mm A z")}`
+    );
+    const visits = await readScheduledVisits();
+    visit.id = Date.now().toString(); // Ensure visit has an ID
+    visits.push(visit);
+    await writeScheduledVisits(visits);
+    scheduleVisit(visit);
+    log.debug(`Successfully added and scheduled visit ${visit.id}`);
+    return visit;
+  } catch (error) {
+    log.error(`Error adding scheduled visit: ${error}`);
+    throw error;
+  }
 };
 
 // Function to delete a scheduled visit
 const deleteScheduledVisit = async (id) => {
-    try {
-        log.debug(`Deleting scheduled visit ${id}`);
-        const visits = await readScheduledVisits();
-        const updatedVisits = visits.filter(visit => visit.id !== id);
-        await writeScheduledVisits(updatedVisits);
-        
-        // Cancel the scheduled job if it exists
-        if (scheduledVisitJobs.has(id)) {
-            log.debug(`Cancelling job for visit ${id}`);
-            scheduledVisitJobs.get(id).cancel();
-            scheduledVisitJobs.delete(id);
-        }
-        log.debug(`Successfully deleted visit ${id}`);
-    } catch (error) {
-        log.error(`Error deleting scheduled visit: ${error}`);
-        throw error;
+  try {
+    log.debug(`Deleting scheduled visit ${id}`);
+    const visits = await readScheduledVisits();
+    const updatedVisits = visits.filter((visit) => visit.id !== id);
+    await writeScheduledVisits(updatedVisits);
+
+    // Cancel the scheduled jobs if they exist
+    if (scheduledVisitJobs.has(id)) {
+      log.debug(`Cancelling jobs for visit ${id}`);
+      scheduledVisitJobs.get(id).forEach((job) => {
+        if (job) job.cancel();
+      });
+      scheduledVisitJobs.delete(id);
     }
+    log.debug(`Successfully deleted visit ${id}`);
+  } catch (error) {
+    log.error(`Error deleting scheduled visit: ${error}`);
+    throw error;
+  }
 };
 
-// Export the functions for use by server.js
-module.exports = {
-    readScheduledVisits,
-    writeScheduledVisits,
-    initializeScheduledVisits,
-    addScheduledVisit,
-    deleteScheduledVisit,
-    scheduleVisit
-};
+// Initialize Express app
+const app = express();
+app.use(express.json());
+app.use(express.static(path.join(__dirname, "public")));
+
+// Request logging middleware
+app.use((req, res, next) => {
+  const timestamp = new Date().toISOString();
+  console.log(`[${timestamp}] ${req.method} ${req.url}`);
+  next();
+});
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error("Unhandled error:", err);
+  res.status(500).json({
+    error: "Internal Server Error",
+    message: err.message,
+    stack: process.env.NODE_ENV === "development" ? err.stack : undefined,
+  });
+});
+
+// Routes
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
+// Get the configured timezone
+app.get("/api/timezone", (req, res) => {
+  res.json({ timezone: config.get("timezone") });
+});
+
+// Get current schedules
+app.get("/api/schedules", (req, res) => {
+  res.json(schedules);
+});
+
+// Get current active code
+app.get("/api/current-code", (req, res) => {
+  res.json({ currentCode: currentCode });
+});
+
+// Get all scheduled visits
+app.get("/api/visits", async (req, res) => {
+  try {
+    console.log("Fetching all scheduled visits...");
+    const visits = await readScheduledVisits();
+    console.log(`Found ${visits.length} scheduled visits`);
+    res.json(visits);
+  } catch (error) {
+    console.error("Error fetching scheduled visits:", error);
+    res.status(500).json({
+      error: "Failed to read scheduled visits",
+      message: error.message,
+      stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
+    });
+  }
+});
+
+// Add a new scheduled visit
+app.post("/api/visits", async (req, res) => {
+  try {
+    console.log("Adding new scheduled visit:", req.body);
+    const visit = await addScheduledVisit(req.body);
+    console.log("Successfully added visit:", visit);
+    res.json(visit);
+  } catch (error) {
+    console.error("Error adding scheduled visit:", error);
+    res.status(500).json({
+      error: "Failed to save scheduled visit",
+      message: error.message,
+      stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
+    });
+  }
+});
+
+// Delete a scheduled visit
+app.delete("/api/visits/:id", async (req, res) => {
+  try {
+    console.log(`Deleting scheduled visit with ID: ${req.params.id}`);
+    await deleteScheduledVisit(req.params.id);
+    console.log("Successfully deleted visit");
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error deleting scheduled visit:", error);
+    res.status(500).json({
+      error: "Failed to delete scheduled visit",
+      message: error.message,
+      stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
+    });
+  }
+});
+
+// Config management endpoints
+app.get("/api/config", async (req, res) => {
+  try {
+    log.info("Loading configuration...");
+    const configData = {
+      arrivalScheduleTime: config.get("arrivalScheduleTime"),
+      departureScheduleTime: config.get("departureScheduleTime"),
+      arrivingSoonTime: config.get("arrivingSoonTime"),
+      arrivingSoonDayOffset: config.get("arrivingSoonDayOffset"),
+      checkin_mode: config.get("checkin_mode"),
+      checkout_mode: config.get("checkout_mode"),
+      arriving_soon_mode: config.get("arriving_soon_mode"),
+      hubitat_ip: config.get("hubitat_ip"),
+      hubitat_maker_api_access_token: config.get(
+        "hubitat_maker_api_access_token"
+      ),
+      lock_code_slot: config.get("lock_code_slot"),
+      locks_to_code: config.get("locks_to_code"),
+      pushover: config.get("pushover"),
+    };
+    log.info("Configuration loaded successfully");
+    res.json(configData);
+  } catch (error) {
+    log.error(`Error reading config: ${error}`);
+    res.status(500).json({
+      error: "Failed to read configuration",
+      details: error.message,
+    });
+  }
+});
+
+app.post("/api/config", async (req, res) => {
+  try {
+    const configData = req.body;
+
+    // Read the current config file
+    const configPath = path.join(
+      __dirname,
+      "config",
+      `${process.env.NODE_ENV || "default"}.json`
+    );
+    const currentConfig = JSON.parse(await fs.readFile(configPath, "utf8"));
+
+    // Update only the allowed fields
+    const allowedFields = [
+      "arrivalScheduleTime",
+      "departureScheduleTime",
+      "arrivingSoonTime",
+      "arrivingSoonDayOffset",
+      "checkin_mode",
+      "checkout_mode",
+      "arriving_soon_mode",
+      "hubitat_ip",
+      "hubitat_maker_api_access_token",
+      "lock_code_slot",
+      "locks_to_code",
+      "pushover",
+    ];
+
+    allowedFields.forEach((field) => {
+      if (field === "pushover") {
+        currentConfig.pushover = configData.pushover;
+      } else if (configData[field] !== undefined) {
+        currentConfig[field] = configData[field];
+      }
+    });
+
+    // Write back to the config file
+    await fs.writeFile(configPath, JSON.stringify(currentConfig, null, 4));
+
+    // Reload the config
+    config.reload();
+
+    res.json({ message: "Configuration updated successfully" });
+  } catch (error) {
+    log.error(`Error updating config: ${error}`);
+    res.status(500).json({
+      error: "Failed to update configuration",
+      details: error.message,
+    });
+  }
+});
+
+// Start server
+const PORT = config.get("port") || 3000;
+const server = app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server running at:`);
+  console.log(`- Local: http://localhost:${PORT}`);
+  console.log(`- Network: http://0.0.0.0:${PORT}`);
+  console.log(`- Timezone: ${config.get("timezone")}`);
+  console.log(`- Environment: ${process.env.NODE_ENV || "production"}`);
+});
 
 log.debug("Setting up cron job to check calendar");
 
 (async function () {
-    // Schedule the calendar check
-    schedule.scheduleJob(config.get("cron_schedule"), async () => {
-        await getSchedules();
-        await initializeScheduledVisits(); // Also reinitialize scheduled visits
-    });
+  // Schedule the calendar check
+  schedule.scheduleJob(config.get("cron_schedule"), async () => {
+    await getSchedules();
+    await initializeScheduledVisits(); // Also reinitialize scheduled visits
+  });
 
-    // Initial setup
-    await getSchedules(true);
-    await initializeScheduledVisits();
+  // Initial setup
+  await getSchedules(true);
+  await initializeScheduledVisits();
 })();

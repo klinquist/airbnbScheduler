@@ -1,262 +1,680 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Home Visit Scheduler</title>
-        <link
-            href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css"
-            rel="stylesheet"
-        />
-        <link
-            rel="stylesheet"
-            href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css"
-        />
-        <style>
-            .visit-card {
-                margin-bottom: 1rem;
-                transition: all 0.3s ease;
-            }
-            .visit-card:hover {
-                transform: translateY(-2px);
-                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-            }
-            .delete-btn {
-                opacity: 0;
-                transition: opacity 0.3s ease;
-            }
-            .visit-card:hover .delete-btn {
-                opacity: 1;
-            }
-            .alert {
-                display: none;
-                margin-top: 1rem;
-            }
-        </style>
-    </head>
-    <body>
-        <div class="container py-5">
-            <h1 class="mb-4">Home Visit Scheduler</h1>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Airbnb Lock Code Manager</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Oxygen, Ubuntu, Cantarell, sans-serif;
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: #f5f5f5;
+      }
+      .container {
+        background-color: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      h1 {
+        color: #333;
+        margin-bottom: 20px;
+      }
+      .section {
+        margin-bottom: 30px;
+      }
+      .section h2 {
+        color: #666;
+        font-size: 1.2em;
+        margin-bottom: 10px;
+      }
+      .reservation,
+      .visit {
+        background-color: #f8f9fa;
+        padding: 15px;
+        margin-bottom: 10px;
+        border-radius: 4px;
+        border-left: 4px solid #007bff;
+      }
+      .active {
+        border-left-color: #28a745;
+      }
+      .code {
+        font-family: monospace;
+        font-size: 1.2em;
+        padding: 5px 10px;
+        background-color: #e9ecef;
+        border-radius: 4px;
+      }
+      .button {
+        background-color: #007bff;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 1em;
+        margin-right: 10px;
+      }
+      .button:hover {
+        background-color: #0056b3;
+      }
+      .button.delete {
+        background-color: #dc3545;
+      }
+      .button.delete:hover {
+        background-color: #c82333;
+      }
+      .form-group {
+        margin-bottom: 15px;
+      }
+      .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        color: #666;
+      }
+      .form-group input {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+      }
+      .tabs {
+        display: flex;
+        margin-bottom: 20px;
+        border-bottom: 2px solid #dee2e6;
+      }
+      .tab {
+        padding: 10px 20px;
+        cursor: pointer;
+        border: none;
+        background: none;
+        color: #666;
+      }
+      .tab.active {
+        color: #007bff;
+        border-bottom: 2px solid #007bff;
+        margin-bottom: -2px;
+      }
+      .tab-content {
+        display: none;
+      }
+      .tab-content.active {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Airbnb Lock Code Manager</h1>
 
-            <div class="card mb-4">
-                <div class="card-body">
-                    <h5 class="card-title">Schedule a Visit</h5>
-                    <form id="visitForm">
-                        <div class="mb-3">
-                            <label for="visitDate" class="form-label"
-                                >Date & Time</label
-                            >
-                            <input
-                                type="text"
-                                class="form-control"
-                                id="visitDate"
-                                required
-                            />
-                        </div>
-                        <div class="mb-3">
-                            <label for="mode" class="form-label">Mode</label>
-                            <select class="form-select" id="mode" required>
-                                <option value="">Select a mode...</option>
-                                <option value="Home">Home</option>
-                                <option value="Away">Away</option>
-                                <option value="Night">Night</option>
-                                <option value="ArrivingSoon">
-                                    Arriving Soon
-                                </option>
-                            </select>
-                        </div>
-                        <button type="submit" class="btn btn-primary">
-                            Schedule Visit
-                        </button>
-                    </form>
-                    <div
-                        id="successAlert"
-                        class="alert alert-success"
-                        role="alert"
-                    >
-                        Visit scheduled successfully!
-                    </div>
-                    <div
-                        id="errorAlert"
-                        class="alert alert-danger"
-                        role="alert"
-                    >
-                        Failed to schedule visit. Please try again.
-                    </div>
-                </div>
-            </div>
+      <div class="section">
+        <h2>Current Active Code</h2>
+        <div id="current-code">Loading...</div>
+      </div>
 
-            <h2 class="mb-3">Scheduled Visits</h2>
-            <div id="visitsList"></div>
+      <div class="tabs">
+        <button class="tab active" onclick="showTab('airbnb')">
+          Airbnb Reservations
+        </button>
+        <button class="tab" onclick="showTab('visits')">Manual Visits</button>
+        <button class="tab" onclick="showTab('config')">Configuration</button>
+      </div>
+
+      <div id="airbnb-tab" class="tab-content active">
+        <div class="section">
+          <h2>Upcoming Airbnb Reservations</h2>
+          <div id="schedules">Loading...</div>
         </div>
+      </div>
 
-        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/moment-timezone/0.5.43/moment-timezone-with-data.min.js"></script>
-        <script>
-            // Get the configured timezone from the server
-            let configuredTimezone;
-            let datePicker;
-            fetch('/api/timezone')
-                .then((response) => response.json())
-                .then((data) => {
-                    configuredTimezone = data.timezone;
-                    // Initialize date picker with the configured timezone
-                    datePicker = flatpickr('#visitDate', {
-                        enableTime: true,
-                        minDate: 'today',
-                        time_24hr: false,
-                        dateFormat: 'Y-m-d h:i K',
-                        defaultHour: 12,
-                        defaultMinute: 0,
-                        onChange: function (selectedDates) {
-                            if (selectedDates.length > 0) {
-                                const date = moment(selectedDates[0]).tz(
-                                    configuredTimezone
-                                );
-                                this.input.value =
-                                    date.format('YYYY-MM-DD h:mm A');
-                            }
-                        },
-                    });
-                })
-                .catch((error) => {
-                    console.error('Failed to get timezone:', error);
-                    showError('Failed to load timezone configuration');
-                });
+      <div id="visits-tab" class="tab-content">
+        <div class="section">
+          <h2>Manual Visits</h2>
+          <div id="visits">Loading...</div>
+        </div>
+        <div class="section">
+          <h2>Add New Visit</h2>
+          <form id="visit-form">
+            <div class="form-group">
+              <label for="name">Name</label>
+              <input type="text" id="name" required />
+            </div>
+            <div class="form-group">
+              <label for="phone">Phone Number (Optional)</label>
+              <input
+                type="text"
+                id="phone"
+                placeholder="Leave blank to skip lock coding"
+              />
+            </div>
+            <div id="mode-changes">
+              <div class="mode-change">
+                <h3>Mode Change #1</h3>
+                <div class="form-group">
+                  <label for="time1">Time</label>
+                  <input type="datetime-local" id="time1" required />
+                </div>
+                <div class="form-group">
+                  <label for="mode1">Mode</label>
+                  <select id="mode1" required>
+                    <option value="">Select a mode...</option>
+                    <option value="checkin">Check-in Mode</option>
+                    <option value="checkout">Check-out Mode</option>
+                    <option value="arriving_soon">Arriving Soon Mode</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <button type="button" class="button" onclick="addModeChange()">
+              Add Another Mode Change
+            </button>
+            <button type="submit" class="button">Add Visit</button>
+          </form>
+        </div>
+      </div>
 
-            function showSuccess(message) {
-                const alert = document.getElementById('successAlert');
-                alert.textContent = message;
-                alert.style.display = 'block';
-                setTimeout(() => {
-                    alert.style.display = 'none';
-                }, 3000);
+      <div id="config-tab" class="tab-content">
+        <div class="section">
+          <h2>System Configuration</h2>
+          <form id="config-form">
+            <div class="form-group">
+              <label for="arrivalScheduleTime">Arrival Schedule Time</label>
+              <input type="time" id="arrivalScheduleTime" required />
+            </div>
+            <div class="form-group">
+              <label for="departureScheduleTime">Departure Schedule Time</label>
+              <input type="time" id="departureScheduleTime" required />
+            </div>
+            <div class="form-group">
+              <label for="arrivingSoonTime">Arriving Soon Time</label>
+              <input type="time" id="arrivingSoonTime" required />
+            </div>
+            <div class="form-group">
+              <label for="arrivingSoonDayOffset"
+                >Arriving Soon Day Offset</label
+              >
+              <input
+                type="number"
+                id="arrivingSoonDayOffset"
+                required
+                min="0"
+                max="7"
+              />
+            </div>
+            <div class="form-group">
+              <label for="checkin_mode">Check-in Mode</label>
+              <input type="text" id="checkin_mode" required />
+            </div>
+            <div class="form-group">
+              <label for="checkout_mode">Check-out Mode</label>
+              <input type="text" id="checkout_mode" required />
+            </div>
+            <div class="form-group">
+              <label for="arriving_soon_mode">Arriving Soon Mode</label>
+              <input type="text" id="arriving_soon_mode" required />
+            </div>
+            <div class="form-group">
+              <label for="hubitat_ip">Hubitat IP Address</label>
+              <input type="text" id="hubitat_ip" required />
+            </div>
+            <div class="form-group">
+              <label for="hubitat_maker_api_access_token"
+                >Hubitat Maker API Token</label
+              >
+              <input type="text" id="hubitat_maker_api_access_token" required />
+            </div>
+            <div class="form-group">
+              <label for="lock_code_slot">Lock Code Slot</label>
+              <input type="text" id="lock_code_slot" required />
+            </div>
+            <div class="form-group">
+              <label for="locks_to_code">Locks to Code (comma-separated)</label>
+              <input type="text" id="locks_to_code" required />
+            </div>
+            <div class="form-group">
+              <label for="pushover_user">Pushover User Key</label>
+              <input type="text" id="pushover_user" required />
+            </div>
+            <div class="form-group">
+              <label for="pushover_token">Pushover App Token</label>
+              <input type="text" id="pushover_token" required />
+            </div>
+            <button type="submit" class="button">Save Configuration</button>
+          </form>
+        </div>
+      </div>
+
+      <button class="button" onclick="refreshData()">Refresh Data</button>
+    </div>
+
+    <script>
+      let timezone = "";
+
+      function formatDate(dateString) {
+        const date = new Date(dateString);
+        return date.toLocaleString("en-US", {
+          weekday: "long",
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+          hour: "numeric",
+          minute: "numeric",
+          timeZoneName: "short",
+        });
+      }
+
+      function showTab(tabName) {
+        // Update tab buttons
+        document.querySelectorAll(".tab").forEach((tab) => {
+          tab.classList.remove("active");
+        });
+        document
+          .querySelector(`.tab[onclick="showTab('${tabName}')"]`)
+          .classList.add("active");
+
+        // Update tab content
+        document.querySelectorAll(".tab-content").forEach((content) => {
+          content.classList.remove("active");
+        });
+        document.getElementById(`${tabName}-tab`).classList.add("active");
+      }
+
+      function refreshData() {
+        // Get timezone first
+        fetch("/api/timezone")
+          .then((response) => response.json())
+          .then((data) => {
+            timezone = data.timezone;
+          });
+
+        // Refresh current code
+        fetch("/api/current-code")
+          .then((response) => response.json())
+          .then((data) => {
+            const currentCodeDiv = document.getElementById("current-code");
+            if (data.currentCode && data.currentCode.length > 0) {
+              currentCodeDiv.innerHTML = `
+                                <div class="code">${data.currentCode[0]}</div>
+                                <div>Reservation: ${data.currentCode[1]}</div>
+                            `;
+            } else {
+              currentCodeDiv.innerHTML =
+                "<div>No active code at this time</div>";
+            }
+          });
+
+        // Refresh schedules
+        fetch("/api/schedules")
+          .then((response) => response.json())
+          .then((schedules) => {
+            const schedulesDiv = document.getElementById("schedules");
+            if (Object.keys(schedules).length === 0) {
+              schedulesDiv.innerHTML = "<div>No upcoming reservations</div>";
+              return;
             }
 
-            function showError(message) {
-                const alert = document.getElementById('errorAlert');
-                alert.textContent = message;
-                alert.style.display = 'block';
-                setTimeout(() => {
-                    alert.style.display = 'none';
-                }, 3000);
+            const now = new Date();
+            const scheduleHtml = Object.entries(schedules)
+              .map(([reservationNumber, schedule]) => {
+                const isActive =
+                  new Date(schedule.start) <= now &&
+                  new Date(schedule.end) >= now;
+                return `
+                                    <div class="reservation ${
+                                      isActive ? "active" : ""
+                                    }">
+                                        <div><strong>Reservation:</strong> ${reservationNumber}</div>
+                                        <div><strong>Code:</strong> ${
+                                          schedule.phoneNumber
+                                        }</div>
+                                        <div><strong>Check-in:</strong> ${formatDate(
+                                          schedule.start
+                                        )}</div>
+                                        <div><strong>Check-out:</strong> ${formatDate(
+                                          schedule.end
+                                        )}</div>
+                                        ${
+                                          schedule.arriving
+                                            ? `<div><strong>Arriving Soon:</strong> ${formatDate(
+                                                schedule.arriving
+                                              )}</div>`
+                                            : ""
+                                        }
+                                    </div>
+                                `;
+              })
+              .join("");
+            schedulesDiv.innerHTML = scheduleHtml;
+          });
+
+        // Refresh visits
+        fetch("/api/visits")
+          .then((response) => response.json())
+          .then((visits) => {
+            const visitsDiv = document.getElementById("visits");
+            if (visits.length === 0) {
+              visitsDiv.innerHTML = "<div>No manual visits scheduled</div>";
+              return;
             }
 
-            // Load and display visits
-            async function loadScheduledVisits() {
-                try {
-                    const response = await fetch('/api/visits');
-                    if (!response.ok) {
-                        const errorData = await response.json();
-                        throw new Error(
-                            errorData.message || 'Failed to load visits'
-                        );
+            const now = new Date();
+            const visitsHtml = visits
+              .map((visit) => {
+                const isActive = visit.modeChanges.some(
+                  (change) =>
+                    new Date(change.time) <= now && new Date(change.time) >= now
+                );
+
+                return `
+                  <div class="visit ${isActive ? "active" : ""}">
+                    <div><strong>Name:</strong> ${visit.name}</div>
+                    ${
+                      visit.phone
+                        ? `<div><strong>Phone:</strong> ${visit.phone}</div>`
+                        : ""
                     }
-                    const visits = await response.json();
-                    displayScheduledVisits(visits);
-                } catch (error) {
-                    console.error('Failed to load visits:', error);
-                    showError(`Failed to load visits: ${error.message}`);
-                }
-            }
-
-            function displayScheduledVisits(visits) {
-                const visitsList = document.getElementById('visitsList');
-                visitsList.innerHTML = '';
-
-                visits.sort((a, b) => new Date(a.date) - new Date(b.date));
-
-                visits.forEach((visit) => {
-                    const date = moment.utc(visit.date).tz(configuredTimezone);
-                    const card = document.createElement('div');
-                    card.className = 'card visit-card';
-                    card.innerHTML = `
-                    <div class="card-body d-flex justify-content-between align-items-center">
-                        <div>
-                            <h5 class="card-title">${date.format(
-                                'MMM D, YYYY h:mm A z'
-                            )}</h5>
-                            <p class="card-text mb-0">Mode: ${visit.mode}</p>
-                        </div>
-                        <button class="btn btn-danger delete-btn" onclick="deleteVisit('${
-                            visit.id
-                        }')">
-                            Delete
-                        </button>
-                    </div>
+                    <div><strong>Mode Changes:</strong></div>
+                    <ul>
+                      ${visit.modeChanges
+                        .map(
+                          (change) => `
+                        <li>${formatDate(change.time)} - ${change.mode
+                            .replace("_", " ")
+                            .replace(/\b\w/g, (l) => l.toUpperCase())}</li>
+                      `
+                        )
+                        .join("")}
+                    </ul>
+                    <button class="button delete" onclick="deleteVisit('${
+                      visit.id
+                    }')">Delete</button>
+                  </div>
                 `;
-                    visitsList.appendChild(card);
-                });
+              })
+              .join("");
+            visitsDiv.innerHTML = visitsHtml;
+          });
+      }
+
+      // Handle visit form submission
+      document
+        .getElementById("visit-form")
+        .addEventListener("submit", async (e) => {
+          e.preventDefault();
+
+          // Collect all mode changes
+          const modeChanges = [];
+          let modeChangeCount = 1;
+          while (document.getElementById(`time${modeChangeCount}`)) {
+            modeChanges.push({
+              time: document.getElementById(`time${modeChangeCount}`).value,
+              mode: document.getElementById(`mode${modeChangeCount}`).value,
+            });
+            modeChangeCount++;
+          }
+
+          const visit = {
+            name: document.getElementById("name").value,
+            phone: document.getElementById("phone").value || null,
+            modeChanges: modeChanges,
+          };
+
+          try {
+            const response = await fetch("/api/visits", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify(visit),
+            });
+
+            if (response.ok) {
+              // Clear form
+              e.target.reset();
+              // Reset mode changes
+              const modeChangesDiv = document.getElementById("mode-changes");
+              modeChangesDiv.innerHTML = `
+                <div class="mode-change">
+                  <h3>Mode Change #1</h3>
+                  <div class="form-group">
+                    <label for="time1">Time</label>
+                    <input type="datetime-local" id="time1" required />
+                  </div>
+                  <div class="form-group">
+                    <label for="mode1">Mode</label>
+                    <select id="mode1" required>
+                      <option value="">Select a mode...</option>
+                      <option value="checkin">Check-in Mode</option>
+                      <option value="checkout">Check-out Mode</option>
+                      <option value="arriving_soon">Arriving Soon Mode</option>
+                    </select>
+                  </div>
+                </div>
+              `;
+              // Refresh data
+              refreshData();
+            } else {
+              alert("Failed to add visit");
             }
+          } catch (error) {
+            console.error("Error adding visit:", error);
+            alert("Failed to add visit");
+          }
+        });
 
-            // Handle form submission
-            document
-                .getElementById('visitForm')
-                .addEventListener('submit', async (e) => {
-                    e.preventDefault();
-                    try {
-                        const date = datePicker.selectedDates[0];
-                        const mode = document.getElementById('mode').value;
+      function addModeChange() {
+        const modeChangesDiv = document.getElementById("mode-changes");
+        const currentCount = modeChangesDiv.children.length;
 
-                        if (!date) {
-                            throw new Error('Please select a date');
-                        }
+        if (currentCount >= 3) {
+          alert("Maximum of 3 mode changes allowed");
+          return;
+        }
 
-                        const response = await fetch('/api/visits', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({
-                                date: date.toISOString(),
-                                mode: mode,
-                            }),
-                        });
+        const newModeChange = document.createElement("div");
+        newModeChange.className = "mode-change";
+        newModeChange.innerHTML = `
+          <h3>Mode Change #${currentCount + 1}</h3>
+          <div class="form-group">
+            <label for="time${currentCount + 1}">Time</label>
+            <input type="datetime-local" id="time${
+              currentCount + 1
+            }" required />
+          </div>
+          <div class="form-group">
+            <label for="mode${currentCount + 1}">Mode</label>
+            <select id="mode${currentCount + 1}" required>
+              <option value="">Select a mode...</option>
+              <option value="checkin">Check-in Mode</option>
+              <option value="checkout">Check-out Mode</option>
+              <option value="arriving_soon">Arriving Soon Mode</option>
+            </select>
+          </div>
+          <button type="button" class="button delete" onclick="this.parentElement.remove()">Remove</button>
+        `;
+        modeChangesDiv.appendChild(newModeChange);
+      }
 
-                        if (!response.ok) {
-                            const errorData = await response.json();
-                            throw new Error(
-                                errorData.message || 'Failed to schedule visit'
-                            );
-                        }
+      // Handle visit deletion
+      async function deleteVisit(id) {
+        if (!confirm("Are you sure you want to delete this visit?")) {
+          return;
+        }
 
-                        const visit = await response.json();
-                        console.log('Successfully scheduled visit:', visit);
-                        datePicker.clear();
-                        loadScheduledVisits();
-                        showSuccess('Visit scheduled successfully');
-                    } catch (error) {
-                        console.error('Failed to schedule visit:', error);
-                        showError(`Failed to schedule visit: ${error.message}`);
-                    }
-                });
+        try {
+          const response = await fetch(`/api/visits/${id}`, {
+            method: "DELETE",
+          });
 
-            // Handle visit deletion
-            async function deleteVisit(id) {
-                try {
-                    const response = await fetch(`/api/visits/${id}`, {
-                        method: 'DELETE',
-                    });
+          if (response.ok) {
+            refreshData();
+          } else {
+            alert("Failed to delete visit");
+          }
+        } catch (error) {
+          console.error("Error deleting visit:", error);
+          alert("Failed to delete visit");
+        }
+      }
 
-                    if (!response.ok) {
-                        const errorData = await response.json();
-                        throw new Error(
-                            errorData.message || 'Failed to delete visit'
-                        );
-                    }
+      // Add config management functions
+      async function loadConfig() {
+        try {
+          const response = await fetch("/api/config");
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(
+              errorData.details || "Failed to load configuration"
+            );
+          }
+          const config = await response.json();
+          console.log("Loaded config:", config); // Debug log
 
-                    loadScheduledVisits();
-                    showSuccess('Visit deleted successfully');
-                } catch (error) {
-                    console.error('Failed to delete visit:', error);
-                    showError(`Failed to delete visit: ${error.message}`);
-                }
+          // Convert times to 24-hour format for time inputs
+          if (config.arrivalScheduleTime) {
+            document.getElementById("arrivalScheduleTime").value =
+              convertTo24Hour(config.arrivalScheduleTime);
+          }
+          if (config.departureScheduleTime) {
+            document.getElementById("departureScheduleTime").value =
+              convertTo24Hour(config.departureScheduleTime);
+          }
+          if (config.arrivingSoonTime) {
+            document.getElementById("arrivingSoonTime").value = convertTo24Hour(
+              config.arrivingSoonTime
+            );
+          }
+
+          // Set other fields
+          if (config.arrivingSoonDayOffset !== undefined) {
+            document.getElementById("arrivingSoonDayOffset").value =
+              config.arrivingSoonDayOffset;
+          }
+          if (config.checkin_mode) {
+            document.getElementById("checkin_mode").value = config.checkin_mode;
+          }
+          if (config.checkout_mode) {
+            document.getElementById("checkout_mode").value =
+              config.checkout_mode;
+          }
+          if (config.arriving_soon_mode) {
+            document.getElementById("arriving_soon_mode").value =
+              config.arriving_soon_mode;
+          }
+          if (config.hubitat_ip) {
+            document.getElementById("hubitat_ip").value = config.hubitat_ip;
+          }
+          if (config.hubitat_maker_api_access_token) {
+            document.getElementById("hubitat_maker_api_access_token").value =
+              config.hubitat_maker_api_access_token;
+          }
+          if (config.lock_code_slot) {
+            document.getElementById("lock_code_slot").value =
+              config.lock_code_slot;
+          }
+          if (config.locks_to_code) {
+            document.getElementById("locks_to_code").value =
+              config.locks_to_code.join(", ");
+          }
+          if (config.pushover && config.pushover.user) {
+            document.getElementById("pushover_user").value =
+              config.pushover.user;
+          }
+          if (config.pushover && config.pushover.token) {
+            document.getElementById("pushover_token").value =
+              config.pushover.token;
+          }
+        } catch (error) {
+          console.error("Error loading config:", error);
+          alert(`Failed to load configuration: ${error.message}`);
+        }
+      }
+
+      function convertTo24Hour(time12h) {
+        const [time, modifier] = time12h.split(" ");
+        let [hours, minutes] = time.split(":");
+        hours = parseInt(hours);
+        if (modifier === "PM" && hours < 12) hours += 12;
+        if (modifier === "AM" && hours === 12) hours = 0;
+        return `${hours.toString().padStart(2, "0")}:${minutes}`;
+      }
+
+      function convertTo12Hour(time24h) {
+        const [hours, minutes] = time24h.split(":");
+        const hour = parseInt(hours);
+        const modifier = hour >= 12 ? "PM" : "AM";
+        const hour12 = hour % 12 || 12;
+        return `${hour12}:${minutes} ${modifier}`;
+      }
+
+      // Handle config form submission
+      document
+        .getElementById("config-form")
+        .addEventListener("submit", async (e) => {
+          e.preventDefault();
+
+          const config = {
+            arrivalScheduleTime: convertTo12Hour(
+              document.getElementById("arrivalScheduleTime").value
+            ),
+            departureScheduleTime: convertTo12Hour(
+              document.getElementById("departureScheduleTime").value
+            ),
+            arrivingSoonTime: convertTo12Hour(
+              document.getElementById("arrivingSoonTime").value
+            ),
+            arrivingSoonDayOffset: parseInt(
+              document.getElementById("arrivingSoonDayOffset").value
+            ),
+            checkin_mode: document.getElementById("checkin_mode").value,
+            checkout_mode: document.getElementById("checkout_mode").value,
+            arriving_soon_mode:
+              document.getElementById("arriving_soon_mode").value,
+            hubitat_ip: document.getElementById("hubitat_ip").value,
+            hubitat_maker_api_access_token: document.getElementById(
+              "hubitat_maker_api_access_token"
+            ).value,
+            lock_code_slot: document.getElementById("lock_code_slot").value,
+            locks_to_code: document
+              .getElementById("locks_to_code")
+              .value.split(",")
+              .map((s) => s.trim()),
+            pushover: {
+              user: document.getElementById("pushover_user").value,
+              token: document.getElementById("pushover_token").value,
+            },
+          };
+
+          try {
+            const response = await fetch("/api/config", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify(config),
+            });
+
+            if (response.ok) {
+              alert("Configuration saved successfully");
+              loadConfig(); // Reload to ensure we have the latest values
+            } else {
+              alert("Failed to save configuration");
             }
+          } catch (error) {
+            console.error("Error saving config:", error);
+            alert("Failed to save configuration");
+          }
+        });
 
-            // Load visits when page loads
-            loadScheduledVisits();
-        </script>
-    </body>
+      // Load config when the page loads
+      loadConfig();
+
+      // Initial load
+      refreshData();
+    </script>
+  </body>
 </html>
