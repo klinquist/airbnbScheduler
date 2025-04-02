@@ -19,26 +19,32 @@ const readFileAsync = promisify(fs.readFile);
 const writeFileAsync = promisify(fs.writeFile);
 
 // Initialize Pushover
-let pushover;
-try {
-  pushover = new Pushover({
-    user: config.get("pushover.user"),
-    token: config.get("pushover.token"),
-    device: config.get("pushover.device"),
-    debug: true,
-    onerror: (error) => {
-      console.error(`Pushover error: ${error}`);
-    },
-  });
-} catch (error) {
-  console.error(`Failed to initialize Pushover: ${error}`);
-  pushover = null;
+let pushover = null;
+if (config.has("pushover")) {
+  try {
+    pushover = new Pushover({
+      user: config.get("pushover.user"),
+      token: config.get("pushover.token"),
+      device: config.get("pushover.device"),
+      debug: true,
+      onerror: (error) => {
+        console.error(`Pushover error: ${error}`);
+      },
+    });
+    console.log("Pushover initialized successfully");
+  } catch (error) {
+    console.error(`Failed to initialize Pushover: ${error}`);
+  }
+} else {
+  console.log(
+    "No Pushover configuration found, notifications will be disabled"
+  );
 }
 
 // Function to send Pushover notification
 const sendPush = (msg) => {
   if (!pushover) {
-    console.error("Pushover not initialized, skipping notification");
+    console.log("Pushover not configured, skipping notification");
     return;
   }
   pushover.send(
@@ -65,12 +71,16 @@ const log = {
   info: (msg) => {
     const now = moment().format("Y-MM-DD h:mm A");
     console.log(`${now} - INFO: ${msg}`);
-    sendPush(msg);
+    if (pushover) {
+      sendPush(msg);
+    }
   },
   error: (msg) => {
     const now = moment().format("Y-MM-DD h:mm A");
     console.log(`${now} - ERROR: ${msg}`);
-    sendPush(msg);
+    if (pushover) {
+      sendPush(msg);
+    }
   },
 };
 
