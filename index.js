@@ -4,7 +4,7 @@ const moment = require("moment-timezone");
 const config = require("config");
 const schedule = require("node-schedule");
 const retry = require("async-retry");
-const fs = require("fs").promises;
+const fs = require("fs");
 const express = require("express");
 const path = require("path");
 const { exec } = require("child_process");
@@ -12,14 +12,26 @@ const { promisify } = require("util");
 const execAsync = promisify(exec);
 const chokidar = require("chokidar");
 const bodyParser = require("body-parser");
+const Pushover = require("pushover-notifications");
 
-let pushover, p;
-if (config.has("pushover")) {
-  pushover = require("pushover-notifications");
-  p = new pushover({
+// Promisify fs functions
+const readFileAsync = promisify(fs.readFile);
+const writeFileAsync = promisify(fs.writeFile);
+
+let pushover;
+try {
+  pushover = new Pushover({
     user: config.get("pushover.user"),
     token: config.get("pushover.token"),
+    device: config.get("pushover.device"),
+    debug: true,
+    onerror: (error) => {
+      log.error(`Pushover error: ${error}`);
+    },
   });
+} catch (error) {
+  log.error(`Failed to initialize Pushover: ${error}`);
+  pushover = null;
 }
 
 let LOCK_CODE_SLOT = config.get("lock_code_slot");
@@ -609,7 +621,7 @@ const readScheduledVisits = async () => {
     }
 
     const filePath = path.join(__dirname, "data", "scheduled_visits.json");
-    const data = await fs.readFile(filePath, "utf8");
+    const data = await readFileAsync(filePath, "utf8");
     const visits = JSON.parse(data);
 
     // Update cache
@@ -627,7 +639,7 @@ const writeScheduledVisits = async (visits) => {
     const filePath = path.join(__dirname, "data", "scheduled_visits.json");
 
     // Read current file content
-    const currentData = await fs.readFile(filePath, "utf8");
+    const currentData = await readFileAsync(filePath, "utf8");
     const currentVisits = JSON.parse(currentData);
 
     // Compare current and new visits
@@ -646,7 +658,7 @@ const writeScheduledVisits = async (visits) => {
     }
 
     // Write new data
-    await fs.writeFile(filePath, JSON.stringify(visits, null, 2));
+    await writeFileAsync(filePath, JSON.stringify(visits, null, 2));
     lastWriteTime = now;
 
     // Update cache
@@ -991,7 +1003,7 @@ app.post("/api/config", async (req, res) => {
       "config",
       `${process.env.NODE_ENV || "default"}.json`
     );
-    const currentConfig = JSON.parse(await fs.readFile(configPath, "utf8"));
+    const currentConfig = JSON.parse(await readFileAsync(configPath, "utf8"));
 
     // Update only the allowed fields
     const allowedFields = [
@@ -1018,7 +1030,7 @@ app.post("/api/config", async (req, res) => {
     });
 
     // Write back to the config file
-    await fs.writeFile(configPath, JSON.stringify(currentConfig, null, 4));
+    await writeFileAsync(configPath, JSON.stringify(currentConfig, null, 4));
 
     // Reload the config
     config.reload();
@@ -1067,3 +1079,39 @@ process.on("SIGTERM", () => {
     process.exit(0);
   });
 });
+
+// Function to send Pushover notification
+const sendPushoverNotification = async (
+  message,
+  title = "Airbnb Scheduler"
+) => {
+  if (!pushover) {
+    log.error("Pushover not initialized, skipping notification");
+    return;
+  }
+
+  try {
+    return new Promise((resolve, reject) => {
+      pushover.send(
+        {
+          title: title,
+          message: message,
+          priority: 1,
+          sound: "cosmic",
+        },
+        (err) => {
+          if (err) {
+            log.error(`Pushover notification error: ${err}`);
+            reject(err);
+          } else {
+            log.debug("Pushover notification sent successfully");
+            resolve();
+          }
+        }
+      );
+    });
+  } catch (error) {
+    log.error(`Error sending Pushover notification: ${error}`);
+    throw error;
+  }
+};
