@@ -18,6 +18,7 @@ const Pushover = require("pushover-notifications");
 const readFileAsync = promisify(fs.readFile);
 const writeFileAsync = promisify(fs.writeFile);
 
+// Initialize Pushover
 let pushover;
 try {
   pushover = new Pushover({
@@ -26,46 +27,36 @@ try {
     device: config.get("pushover.device"),
     debug: true,
     onerror: (error) => {
-      log.error(`Pushover error: ${error}`);
+      console.error(`Pushover error: ${error}`);
     },
   });
 } catch (error) {
-  log.error(`Failed to initialize Pushover: ${error}`);
+  console.error(`Failed to initialize Pushover: ${error}`);
   pushover = null;
 }
 
-let LOCK_CODE_SLOT = config.get("lock_code_slot");
-if (typeof LOCK_CODE_SLOT == "number") {
-  LOCK_CODE_SLOT = LOCK_CODE_SLOT.toString();
-}
-const HUBITAT_IP = config.get("hubitat_ip");
-const HUBITAT_ACCESS_TOKEN = config.get("hubitat_maker_api_access_token");
-const locksToCode = config.get("locks_to_code");
-
-const getHubitatUrl = (path) => {
-  return `http://${HUBITAT_IP}/apps/api/9/${path}?access_token=${HUBITAT_ACCESS_TOKEN}`;
-};
-
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
+// Function to send Pushover notification
 const sendPush = (msg) => {
-  if (config.has("pushover")) {
-    p.send(
-      {
-        message: msg,
-        title: "Airbnb Lock Code", // optional
-        sound: "magic",
-        priority: 1,
-      },
-      (err, res) => {
-        if (err) {
-          log.error(err);
-        }
-      }
-    );
+  if (!pushover) {
+    console.error("Pushover not initialized, skipping notification");
+    return;
   }
+  pushover.send(
+    {
+      message: msg,
+      title: "Airbnb Lock Code",
+      sound: "magic",
+      priority: 1,
+    },
+    (err) => {
+      if (err) {
+        console.error(err);
+      }
+    }
+  );
 };
 
+// Define logging functions
 const log = {
   debug: (msg) => {
     const now = moment().format("Y-MM-DD h:mm A");
@@ -82,6 +73,20 @@ const log = {
     sendPush(msg);
   },
 };
+
+let LOCK_CODE_SLOT = config.get("lock_code_slot");
+if (typeof LOCK_CODE_SLOT == "number") {
+  LOCK_CODE_SLOT = LOCK_CODE_SLOT.toString();
+}
+const HUBITAT_IP = config.get("hubitat_ip");
+const HUBITAT_ACCESS_TOKEN = config.get("hubitat_maker_api_access_token");
+const locksToCode = config.get("locks_to_code");
+
+const getHubitatUrl = (path) => {
+  return `http://${HUBITAT_IP}/apps/api/9/${path}?access_token=${HUBITAT_ACCESS_TOKEN}`;
+};
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const formatDate = (date) => {
   const now = moment();
