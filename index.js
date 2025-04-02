@@ -7,6 +7,11 @@ const retry = require("async-retry");
 const fs = require("fs").promises;
 const express = require("express");
 const path = require("path");
+const { exec } = require("child_process");
+const { promisify } = require("util");
+const execAsync = promisify(exec);
+const chokidar = require("chokidar");
+const bodyParser = require("body-parser");
 
 let pushover, p;
 if (config.has("pushover")) {
@@ -563,7 +568,98 @@ const getSchedules = async (firstRun) => {
 const SCHEDULED_VISITS_FILE = "scheduled_visits.json";
 const scheduledVisitJobs = new Map(); // Store cron jobs for scheduled visits
 
-// Function to schedule a visit
+// Add file watcher for scheduled visits file
+let scheduledVisitsWatcher = null;
+let scheduledVisitsCache = null;
+let lastWriteTime = 0;
+const WRITE_COOLDOWN = 1000; // 1 second cooldown between writes
+
+// Initialize file watcher
+const initFileWatcher = () => {
+  try {
+    const filePath = path.join(__dirname, "data", "scheduled_visits.json");
+    scheduledVisitsWatcher = chokidar.watch(filePath, {
+      persistent: true,
+      ignoreInitial: true,
+      awaitWriteFinish: {
+        stabilityThreshold: 300,
+        pollInterval: 100,
+      },
+    });
+
+    scheduledVisitsWatcher.on("change", (path) => {
+      log.debug("Scheduled visits file modified externally");
+      scheduledVisitsCache = null; // Invalidate cache
+    });
+
+    scheduledVisitsWatcher.on("error", (error) => {
+      log.error(`File watcher error: ${error}`);
+    });
+  } catch (error) {
+    log.error(`Failed to initialize file watcher: ${error}`);
+  }
+};
+
+// Modified readScheduledVisits function with caching
+const readScheduledVisits = async () => {
+  try {
+    // Return cached data if available
+    if (scheduledVisitsCache !== null) {
+      return scheduledVisitsCache;
+    }
+
+    const filePath = path.join(__dirname, "data", "scheduled_visits.json");
+    const data = await fs.readFile(filePath, "utf8");
+    const visits = JSON.parse(data);
+
+    // Update cache
+    scheduledVisitsCache = visits;
+    return visits;
+  } catch (error) {
+    log.error(`Error reading scheduled visits: ${error}`);
+    return [];
+  }
+};
+
+// Modified writeScheduledVisits function with change detection
+const writeScheduledVisits = async (visits) => {
+  try {
+    const filePath = path.join(__dirname, "data", "scheduled_visits.json");
+
+    // Read current file content
+    const currentData = await fs.readFile(filePath, "utf8");
+    const currentVisits = JSON.parse(currentData);
+
+    // Compare current and new visits
+    const hasChanges = JSON.stringify(currentVisits) !== JSON.stringify(visits);
+
+    if (!hasChanges) {
+      log.debug("No changes detected in scheduled visits, skipping write");
+      return;
+    }
+
+    // Check if we're within the cooldown period
+    const now = Date.now();
+    if (now - lastWriteTime < WRITE_COOLDOWN) {
+      log.debug("Within write cooldown period, skipping write");
+      return;
+    }
+
+    // Write new data
+    await fs.writeFile(filePath, JSON.stringify(visits, null, 2));
+    lastWriteTime = now;
+
+    // Update cache
+    scheduledVisitsCache = visits;
+
+    log.debug("Successfully wrote scheduled visits to file");
+  } catch (error) {
+    log.error(`Error writing scheduled visits: ${error}`);
+    throw error;
+  }
+};
+
+// Modified scheduleVisit function to use optimized file operations
 const scheduleVisit = (visit) => {
   log.debug(
     `Scheduling visit ${visit.id} with ${visit.modeChanges.length} mode changes`
@@ -573,7 +669,9 @@ const scheduleVisit = (visit) => {
   if (scheduledVisitJobs.has(visit.id)) {
     log.debug(`Cancelling existing jobs for visit ${visit.id}`);
     scheduledVisitJobs.get(visit.id).forEach((job) => {
-      if (job) job.cancel();
+      if (job && typeof job.cancel === "function") {
+        job.cancel();
+      }
     });
     scheduledVisitJobs.delete(visit.id);
   }
@@ -595,7 +693,8 @@ const scheduleVisit = (visit) => {
         mode = config.get("arriving_soon_mode");
         break;
       default:
-        throw new Error(`Invalid mode selected: ${change.mode}`);
+        log.error(`Invalid mode selected: ${change.mode}`);
+        return null;
     }
 
     if (!mode) {
@@ -653,36 +752,6 @@ const scheduleVisit = (visit) => {
   log.debug(
     `Successfully scheduled ${validJobs.length} jobs for visit ${visit.id}`
   );
-};
-
-// Function to read scheduled visits
-const readScheduledVisits = async () => {
-  try {
-    log.debug("Reading scheduled visits from file...");
-    const data = await fs.readFile(SCHEDULED_VISITS_FILE, "utf8");
-    const visits = JSON.parse(data);
-    log.debug(`Read ${visits.length} scheduled visits from file`);
-    return visits;
-  } catch (error) {
-    if (error.code === "ENOENT") {
-      log.debug("No scheduled visits file found, returning empty array");
-      return [];
-    }
-    log.error(`Error reading scheduled visits: ${error}`);
-    throw error;
-  }
-};
-
-// Function to write scheduled visits
-const writeScheduledVisits = async (visits) => {
-  try {
-    log.debug(`Writing ${visits.length} scheduled visits to file`);
-    await fs.writeFile(SCHEDULED_VISITS_FILE, JSON.stringify(visits, null, 2));
-    log.debug("Successfully wrote scheduled visits to file");
-  } catch (error) {
-    log.error(`Error writing scheduled visits: ${error}`);
-    throw error;
-  }
 };
 
 // Function to initialize scheduled visits
@@ -755,7 +824,9 @@ const deleteScheduledVisit = async (id) => {
     if (scheduledVisitJobs.has(id)) {
       log.debug(`Cancelling jobs for visit ${id}`);
       scheduledVisitJobs.get(id).forEach((job) => {
-        if (job) job.cancel();
+        if (job && typeof job.cancel === "function") {
+          job.cancel();
+        }
       });
       scheduledVisitJobs.delete(id);
     }
@@ -970,6 +1041,7 @@ const server = app.listen(PORT, "0.0.0.0", () => {
   log.info(`- Network: http://0.0.0.0:${PORT}`);
   log.info(`- Timezone: ${config.get("timezone")}`);
   log.info(`- Environment: ${process.env.NODE_ENV || "production"}`);
+  initFileWatcher();
 });
 
 log.debug("Setting up cron job to check calendar");
@@ -985,3 +1057,13 @@ log.debug("Setting up cron job to check calendar");
   await getSchedules(true);
   await initializeScheduledVisits();
 })();
+
+// Clean up file watcher when the server shuts down
+process.on("SIGTERM", () => {
+  if (scheduledVisitsWatcher) {
+    scheduledVisitsWatcher.close();
+  }
+  server.close(() => {
+    process.exit(0);
+  });
+});
