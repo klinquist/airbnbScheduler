@@ -144,14 +144,13 @@ const setMode = async (modeName) => {
   if (!mode) return log.error(`Could not find mode ${modeName}`);
 
   if (mode.active) {
-    return log.info(`Mode ${modeName} is already active.`);
+    return log.debug(`Mode ${modeName} is already active.`);
   }
   try {
     await axios.get(getHubitatUrl(`modes/${mode.id}`));
   } catch (e) {
     throw new Error(err);
   }
-  log.info(`Successfully set mode to ${modeName}`);
 };
 
 const setLockCode = async (phoneNumber, reservationNumber) => {
@@ -492,11 +491,8 @@ const getSchedules = async (firstRun) => {
       let logMessage = `New reservation ${reservationNumber} scheduled for ${formatDate(
         dateStart
       )} to ${formatDate(dateEnd)}`;
-      if (!firstRun) {
-        log.info(logMessage);
-      } else {
-        log.debug(logMessage);
-      }
+
+      log.debug(logMessage);
       let sched = {
         start: dateStart.toISOString(),
         end: dateEnd.toISOString(),
@@ -746,7 +742,7 @@ const scheduleVisit = (visit) => {
 
     return schedule.scheduleJob(changeDate, async () => {
       try {
-        log.info(
+        log.debug(
           `Executing mode change for visit ${
             visit.id
           } - Setting mode to ${mode} at ${moment(changeDate).format(
@@ -763,11 +759,8 @@ const scheduleVisit = (visit) => {
         // If this is the first mode change and phone number is provided, set the lock code
         if (visit.phone && change === visit.modeChanges[0]) {
           try {
-            await setLockCode(visit.phone, `Manual Visit - ${visit.name}`);
-            log.info(`Successfully set lock code for visit ${visit.id}`);
-          } catch (err) {
-            log.error(`Error setting lock code for visit ${visit.id}: ${err}`);
-          }
+            await setLockCode(visit.phone, `${visit.name}`);
+          } catch (err) {}
         }
 
         // If this is the last mode change, clean up
