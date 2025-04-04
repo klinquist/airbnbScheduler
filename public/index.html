@@ -424,6 +424,19 @@
         <div id="visits" class="tab-content">
           <div class="reservation-list" id="visitList">Loading visits...</div>
           <div class="card">
+            <h2>Current Mode</h2>
+            <div id="currentMode">Loading current mode...</div>
+            <div class="form-group">
+              <label for="modeSelect">Change Mode:</label>
+              <select id="modeSelect" class="mode-select">
+                <option value="">Loading modes...</option>
+              </select>
+            </div>
+            <button id="changeModeBtn" class="btn-primary" disabled>
+              Change Mode
+            </button>
+          </div>
+          <div class="card">
             <h2>Add Manual Visit</h2>
             <form id="visitForm">
               <div class="form-group">
@@ -1053,6 +1066,71 @@
 
       // Initial load
       refreshData();
+
+      // Load and handle mode management
+      async function loadModes() {
+        try {
+          const response = await fetch("/api/modes");
+          if (!response.ok) {
+            throw new Error("Failed to load modes");
+          }
+          const modes = await response.json();
+
+          // Update current mode display
+          const currentMode = modes.find((mode) => mode.active);
+          document.getElementById("currentMode").textContent = currentMode
+            ? `Current Mode: ${currentMode.name}`
+            : "No active mode";
+
+          // Update mode select dropdown
+          const modeSelect = document.getElementById("modeSelect");
+          modeSelect.innerHTML = modes
+            .map(
+              (mode) =>
+                `<option value="${mode.id}" ${mode.active ? "selected" : ""}>${
+                  mode.name
+                }</option>`
+            )
+            .join("");
+
+          // Enable change mode button
+          document.getElementById("changeModeBtn").disabled = false;
+        } catch (error) {
+          console.error("Error loading modes:", error);
+          document.getElementById("currentMode").textContent =
+            "Error loading current mode";
+        }
+      }
+
+      // Handle mode change
+      document
+        .getElementById("changeModeBtn")
+        .addEventListener("click", async () => {
+          const modeSelect = document.getElementById("modeSelect");
+          const modeId = modeSelect.value;
+
+          if (!modeId) return;
+
+          try {
+            const response = await fetch(`/api/modes/${modeId}`, {
+              method: "POST",
+            });
+
+            if (!response.ok) {
+              throw new Error("Failed to change mode");
+            }
+
+            // Reload modes to update current mode display
+            await loadModes();
+            alert("Mode changed successfully");
+          } catch (error) {
+            console.error("Error changing mode:", error);
+            alert("Failed to change mode");
+          }
+        });
+
+      // Load modes when page loads
+      loadModes();
     </script>
   </body>
 </html>

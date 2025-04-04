@@ -1145,3 +1145,29 @@ const sendPushoverNotification = async (
     throw error;
   }
 };
+
+app.get("/api/modes", async (req, res) => {
+  try {
+    const modes = await axios.get(getHubitatUrl("modes"));
+    res.json(modes.data);
+  } catch (error) {
+    log.error(`Error getting modes: ${error}`);
+    res.status(500).json({
+      error: "Failed to get modes",
+      details: error.message,
+    });
+  }
+});
+
+app.post("/api/modes/:modeId", async (req, res) => {
+  try {
+    await axios.get(getHubitatUrl(`modes/${req.params.modeId}`));
+    res.json({ message: "Mode changed successfully" });
+  } catch (error) {
+    log.error(`Error setting mode: ${error}`);
+    res.status(500).json({
+      error: "Failed to set mode",
+      details: error.message,
+    });
+  }
+});
