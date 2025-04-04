@@ -132,8 +132,9 @@ const formatDate = (date) => {
 
 const setMode = async (mode) => {
   try {
-    const response = await axios.get(getHubitatUrl(`modes/${mode}`));
-    log.info(`Set mode to ${mode}`);
+    let modeUrl = getHubitatUrl(`modes/${mode}`);
+    const response = await axios.get(modeUrl);
+    log.info(`Set mode to ${mode} via GET ${modeUrl}`);
     return response.data;
   } catch (error) {
     log.error(`Error setting mode: ${error.message}`);

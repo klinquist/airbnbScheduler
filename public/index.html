@@ -250,6 +250,35 @@
         border-radius: 8px;
         margin-bottom: 1rem;
         position: relative;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+      }
+
+      .mode-change .form-group {
+        margin-bottom: 0;
+        flex: 1;
+      }
+
+      .mode-change .form-group:last-child {
+        flex: 0 0 200px;
+      }
+
+      .mode-change label {
+        display: block;
+        margin-bottom: 0.25rem;
+        color: var(--text-color);
+        font-size: 0.9em;
+      }
+
+      .mode-change input,
+      .mode-change select {
+        width: 100%;
+        padding: 0.5rem;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        background: var(--input-bg);
+        color: var(--text-color);
       }
 
       .remove-mode-change {
@@ -281,36 +310,6 @@
         padding: 0.75rem;
         font-size: 1rem;
         margin-top: 1rem;
-      }
-
-      .mode-change .form-group {
-        margin-bottom: 0.5rem;
-      }
-
-      .mode-change .form-group:last-child {
-        margin-bottom: 0;
-      }
-
-      .mode-change label {
-        display: block;
-        margin-bottom: 0.25rem;
-        color: var(--text-color);
-      }
-
-      .mode-change input,
-      .mode-change select {
-        width: 100%;
-        padding: 0.5rem;
-        border: 1px solid var(--border-color);
-        border-radius: 4px;
-        background: var(--input-bg);
-        color: var(--text-color);
-      }
-
-      .mode-change input:focus,
-      .mode-change select:focus {
-        border-color: var(--primary-color);
-        outline: none;
       }
 
       .add-mode-btn {
@@ -442,11 +441,11 @@
               <div id="modeChanges">
                 <div class="mode-change">
                   <div class="form-group">
-                    <label>Date and Time:</label>
+                    <label>Date and Time</label>
                     <input type="datetime-local" class="mode-time" required />
                   </div>
                   <div class="form-group">
-                    <label>Mode:</label>
+                    <label>Mode</label>
                     <select class="mode-select" required>
                       <option value="checkin">Check-in Mode</option>
                       <option value="checkout">Check-out Mode</option>
@@ -783,11 +782,11 @@
         newModeChange.className = "mode-change";
         newModeChange.innerHTML = `
           <div class="form-group">
-            <label>Date and Time:</label>
+            <label>Date and Time</label>
             <input type="datetime-local" class="mode-time" required />
           </div>
           <div class="form-group">
-            <label>Mode:</label>
+            <label>Mode</label>
             <select class="mode-select" required>
               <option value="checkin">Check-in Mode</option>
               <option value="checkout">Check-out Mode</option>
@@ -861,11 +860,11 @@
             document.getElementById("modeChanges").innerHTML = `
             <div class="mode-change">
               <div class="form-group">
-                <label>Date and Time:</label>
+                <label>Date and Time</label>
                 <input type="datetime-local" class="mode-time" required />
               </div>
               <div class="form-group">
-                <label>Mode:</label>
+                <label>Mode</label>
                 <select class="mode-select" required>
                   <option value="checkin">Check-in Mode</option>
                   <option value="checkout">Check-out Mode</option>
