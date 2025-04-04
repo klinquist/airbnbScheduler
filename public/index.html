@@ -445,17 +445,170 @@
           padding: 10px;
         }
 
+        .header {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 15px;
+        }
+
+        .header h1 {
+          font-size: 1.5em;
+        }
+
+        .header-controls {
+          width: 100%;
+          justify-content: space-between;
+        }
+
+        .current-mode-btn,
+        .refresh-btn {
+          padding: 8px 15px;
+          font-size: 0.9em;
+        }
+
+        .mode-popup {
+          position: fixed;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          width: 90%;
+          max-width: 300px;
+          max-height: 90vh;
+          overflow-y: auto;
+        }
+
         .section {
           padding: 15px;
+          margin-bottom: 15px;
+        }
+
+        .tabs {
+          flex-wrap: wrap;
+          gap: 5px;
+        }
+
+        .tab-btn {
+          padding: 8px 15px;
+          font-size: 0.9em;
+          flex: 1 1 auto;
+          min-width: 100px;
+          text-align: center;
+        }
+
+        .reservation-item {
+          padding: 12px;
+        }
+
+        .form-group input,
+        .form-group select {
+          padding: 8px;
+          font-size: 16px; /* Prevents zoom on iOS */
         }
 
         .mode-change {
-          grid-template-columns: 1fr;
+          flex-direction: column;
+          gap: 10px;
+        }
+
+        .mode-change .form-group:last-child {
+          flex: 1;
+          width: 100%;
         }
 
         .config-grid {
           grid-template-columns: 1fr;
         }
+
+        .config-section {
+          padding: 15px;
+        }
+
+        .current-code {
+          padding: 12px;
+          font-size: 1em;
+        }
+
+        .delete-btn,
+        .remove-mode-change {
+          padding: 6px 12px;
+          font-size: 0.8em;
+        }
+
+        #addModeChange,
+        #visitForm button[type="submit"] {
+          padding: 10px;
+          font-size: 0.9em;
+        }
+
+        .save-config-btn {
+          width: 100%;
+          padding: 10px;
+          font-size: 0.9em;
+        }
+      }
+
+      /* Add touch-friendly styles for all devices */
+      button,
+      input,
+      select {
+        min-height: 44px; /* Minimum touch target size */
+      }
+
+      .current-mode-btn,
+      .refresh-btn,
+      .tab-btn,
+      .delete-btn,
+      .remove-mode-change {
+        touch-action: manipulation; /* Improves touch response */
+      }
+
+      /* Prevent text selection on buttons */
+      button {
+        user-select: none;
+        -webkit-user-select: none;
+      }
+
+      /* Improve form input readability on mobile */
+      input[type="text"],
+      input[type="tel"],
+      input[type="number"],
+      input[type="time"],
+      input[type="datetime-local"],
+      select {
+        font-size: 16px; /* Prevents zoom on iOS */
+        -webkit-appearance: none;
+        appearance: none;
+        border-radius: 4px;
+        padding: 8px 12px;
+      }
+
+      /* Add visual feedback for touch interactions */
+      button:active,
+      .current-mode-btn:active,
+      .refresh-btn:active {
+        transform: scale(0.98);
+      }
+
+      /* Improve modal backdrop for mobile */
+      .mode-popup.active {
+        background: var(--card-bg);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+      }
+
+      /* Add a subtle animation for better mobile UX */
+      @keyframes slideUp {
+        from {
+          transform: translate(-50%, 100%);
+          opacity: 0;
+        }
+        to {
+          transform: translate(-50%, -50%);
+          opacity: 1;
+        }
+      }
+
+      .mode-popup.active {
+        animation: slideUp 0.3s ease-out;
       }
     </style>
   </head>
