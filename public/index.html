@@ -50,6 +50,79 @@
         font-weight: 600;
       }
 
+      .header-controls {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+      }
+
+      .mode-selector {
+        position: relative;
+      }
+
+      .current-mode-btn {
+        background-color: var(--primary-color);
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 1em;
+        transition: background-color 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .current-mode-btn:hover {
+        background-color: var(--secondary-color);
+      }
+
+      .mode-popup {
+        position: absolute;
+        top: 100%;
+        right: 0;
+        background: var(--card-bg);
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        min-width: 250px;
+        display: none;
+        z-index: 1000;
+      }
+
+      .mode-popup.active {
+        display: block;
+        animation: fadeIn 0.3s ease;
+      }
+
+      .mode-popup h3 {
+        margin-bottom: 15px;
+        color: var(--primary-color);
+      }
+
+      .mode-popup select {
+        width: 100%;
+        padding: 8px;
+        margin-bottom: 15px;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+      }
+
+      .mode-popup button {
+        width: 100%;
+        padding: 8px;
+        background-color: var(--primary-color);
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+
+      .mode-popup button:hover {
+        background-color: var(--secondary-color);
+      }
+
       .refresh-btn {
         background-color: var(--primary-color);
         color: white;
@@ -390,9 +463,23 @@
     <div class="container">
       <div class="header">
         <h1>Airbnb Lock Code Manager</h1>
-        <button class="refresh-btn" onclick="refreshData()">
-          <span>🔄</span> Refresh
-        </button>
+        <div class="header-controls">
+          <div class="mode-selector">
+            <button class="current-mode-btn" id="currentModeBtn">
+              <span id="currentModeText">Loading mode...</span>
+            </button>
+            <div class="mode-popup" id="modePopup">
+              <h3>Change Mode</h3>
+              <select id="modeSelect">
+                <option value="">Loading modes...</option>
+              </select>
+              <button id="changeModeBtn">Change Mode</button>
+            </div>
+          </div>
+          <button class="refresh-btn" onclick="refreshData()">
+            <span>🔄</span> Refresh
+          </button>
+        </div>
       </div>
 
       <div class="section">
@@ -1078,7 +1165,7 @@
 
           // Update current mode display
           const currentMode = modes.find((mode) => mode.active);
-          document.getElementById("currentMode").textContent = currentMode
+          document.getElementById("currentModeText").textContent = currentMode
             ? `Current Mode: ${currentMode.name}`
             : "No active mode";
 
@@ -1097,10 +1184,29 @@
           document.getElementById("changeModeBtn").disabled = false;
         } catch (error) {
           console.error("Error loading modes:", error);
-          document.getElementById("currentMode").textContent =
-            "Error loading current mode";
+          document.getElementById("currentModeText").textContent =
+            "Error loading mode";
         }
       }
+
+      // Handle mode popup
+      document
+        .getElementById("currentModeBtn")
+        .addEventListener("click", () => {
+          document.getElementById("modePopup").classList.toggle("active");
+        });
+
+      // Close popup when clicking outside
+      document.addEventListener("click", (e) => {
+        const modePopup = document.getElementById("modePopup");
+        const currentModeBtn = document.getElementById("currentModeBtn");
+        if (
+          !modePopup.contains(e.target) &&
+          !currentModeBtn.contains(e.target)
+        ) {
+          modePopup.classList.remove("active");
+        }
+      });
 
       // Handle mode change
       document
@@ -1122,6 +1228,8 @@
 
             // Reload modes to update current mode display
             await loadModes();
+            // Close the popup
+            document.getElementById("modePopup").classList.remove("active");
             alert("Mode changed successfully");
           } catch (error) {
             console.error("Error changing mode:", error);
