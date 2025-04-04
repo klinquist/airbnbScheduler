@@ -367,65 +367,43 @@
 
         <div id="visits" class="tab-content">
           <div class="reservation-list" id="visitList">Loading visits...</div>
-          <form id="visitForm" onsubmit="addVisit(event)">
-            <div class="form-group">
-              <label for="visitName">Visit Name</label>
-              <input
-                type="text"
-                id="visitName"
-                required
-                placeholder="e.g., Cleaning Service"
-              />
-            </div>
-            <div class="form-group">
-              <label for="visitDate">Date</label>
-              <input type="date" id="visitDate" required />
-            </div>
-            <div class="form-group">
-              <label for="visitPhone">Phone Number (Optional)</label>
-              <input
-                type="tel"
-                id="visitPhone"
-                placeholder="Leave blank to skip lock coding"
-              />
-            </div>
-
-            <div class="mode-changes">
-              <h3>Mode Changes</h3>
-              <div id="modeChangesList">
+          <div class="card">
+            <h2>Add Manual Visit</h2>
+            <form id="visitForm">
+              <div class="form-group">
+                <label for="visitName">Name:</label>
+                <input type="text" id="visitName" required />
+              </div>
+              <div class="form-group">
+                <label for="visitPhone">Phone Number (optional):</label>
+                <input
+                  type="tel"
+                  id="visitPhone"
+                  placeholder="Leave blank to skip lock coding"
+                />
+              </div>
+              <div id="modeChanges">
                 <div class="mode-change">
-                  <input
-                    type="time"
-                    class="mode-time"
-                    required
-                    placeholder="Time"
-                  />
-                  <select class="mode-select" required>
-                    <option value="checkin">Check-in Mode</option>
-                    <option value="checkout">Check-out Mode</option>
-                    <option value="arriving_soon">Arriving Soon Mode</option>
-                  </select>
-                  <button
-                    type="button"
-                    class="delete-btn"
-                    onclick="removeModeChange(this)"
-                  >
-                    Remove
-                  </button>
+                  <div class="form-group">
+                    <label>Date and Time:</label>
+                    <input type="datetime-local" class="mode-time" required />
+                  </div>
+                  <div class="form-group">
+                    <label>Mode:</label>
+                    <select class="mode-select" required>
+                      <option value="checkin">Check-in Mode</option>
+                      <option value="checkout">Check-out Mode</option>
+                      <option value="arriving_soon">Arriving Soon Mode</option>
+                    </select>
+                  </div>
                 </div>
               </div>
-              <button
-                type="button"
-                class="add-mode-btn"
-                onclick="addModeChange()"
-                id="addModeBtn"
-              >
-                Add Mode Change
+              <button type="button" id="addModeChange" class="btn-secondary">
+                Add Another Mode Change
               </button>
-            </div>
-
-            <button type="submit" class="submit-btn">Schedule Visit</button>
-          </form>
+              <button type="submit" class="btn-primary">Schedule Visit</button>
+            </form>
+          </div>
         </div>
 
         <div id="config" class="tab-content">
@@ -714,28 +692,72 @@
         }
       }
 
-      // Handle visit form submission
+      // Add mode change button functionality
+      document.getElementById("addModeChange").addEventListener("click", () => {
+        const modeChanges = document.getElementById("modeChanges");
+        if (modeChanges.children.length >= 3) {
+          alert("Maximum of 3 mode changes allowed");
+          return;
+        }
+        const newModeChange = document.createElement("div");
+        newModeChange.className = "mode-change";
+        newModeChange.innerHTML = `
+          <div class="form-group">
+            <label>Date and Time:</label>
+            <input type="datetime-local" class="mode-time" required />
+          </div>
+          <div class="form-group">
+            <label>Mode:</label>
+            <select class="mode-select" required>
+              <option value="checkin">Check-in Mode</option>
+              <option value="checkout">Check-out Mode</option>
+              <option value="arriving_soon">Arriving Soon Mode</option>
+            </select>
+          </div>
+          <button type="button" class="remove-mode-change btn-secondary">Remove</button>
+        `;
+        modeChanges.appendChild(newModeChange);
+
+        // Add remove button functionality
+        newModeChange
+          .querySelector(".remove-mode-change")
+          .addEventListener("click", () => {
+            modeChanges.removeChild(newModeChange);
+          });
+      });
+
+      // Add remove button functionality to initial mode change
+      const initialRemoveButton = document.createElement("button");
+      initialRemoveButton.type = "button";
+      initialRemoveButton.className = "remove-mode-change btn-secondary";
+      initialRemoveButton.textContent = "Remove";
+      initialRemoveButton.addEventListener("click", () => {
+        const modeChanges = document.getElementById("modeChanges");
+        if (modeChanges.children.length > 1) {
+          modeChanges.removeChild(modeChanges.firstElementChild);
+        } else {
+          alert("At least one mode change is required");
+        }
+      });
+      document.querySelector(".mode-change").appendChild(initialRemoveButton);
+
+      // Handle form submission
       document
         .getElementById("visitForm")
         .addEventListener("submit", async (e) => {
           e.preventDefault();
+          const name = document.getElementById("visitName").value;
+          const phone = document.getElementById("visitPhone").value || null;
 
-          // Collect all mode changes
-          const modeChanges = [];
-          let modeChangeCount = 1;
-          while (document.getElementById(`time${modeChangeCount}`)) {
-            modeChanges.push({
-              time: document.getElementById(`time${modeChangeCount}`).value,
-              mode: document.getElementById(`mode${modeChangeCount}`).value,
-            });
-            modeChangeCount++;
-          }
+          const modeChanges = Array.from(
+            document.querySelectorAll(".mode-change")
+          ).map((change) => ({
+            time: change.querySelector(".mode-time").value,
+            mode: change.querySelector(".mode-select").value,
+          }));
 
-          const visit = {
-            name: document.getElementById("visitName").value,
-            phone: document.getElementById("visitPhone").value || null,
-            modeChanges: modeChanges,
-          };
+          // Sort mode changes by time
+          modeChanges.sort((a, b) => new Date(a.time) - new Date(b.time));
 
           try {
             const response = await fetch("/api/visits", {
@@ -743,103 +765,60 @@
               headers: {
                 "Content-Type": "application/json",
               },
-              body: JSON.stringify(visit),
+              body: JSON.stringify({
+                name,
+                phone,
+                modeChanges,
+              }),
             });
 
-            if (response.ok) {
-              // Clear form
-              e.target.reset();
-              // Reset mode changes
-              const modeChangesDiv = document.getElementById("modeChangesList");
-              modeChangesDiv.innerHTML = `
-                <div class="mode-change">
-                  <input
-                    type="time"
-                    class="mode-time"
-                    required
-                    placeholder="Time"
-                  />
-                  <select class="mode-select" required>
-                    <option value="checkin">Check-in Mode</option>
-                    <option value="checkout">Check-out Mode</option>
-                    <option value="arriving_soon">Arriving Soon Mode</option>
-                  </select>
-                  <button
-                    type="button"
-                    class="delete-btn"
-                    onclick="removeModeChange(this)"
-                  >
-                    Remove
-                  </button>
-                </div>
-              `;
-              // Refresh data
-              refreshData();
-            } else {
-              alert("Failed to add visit");
+            if (!response.ok) {
+              throw new Error("Failed to schedule visit");
             }
+
+            // Clear form
+            document.getElementById("visitForm").reset();
+            document.getElementById("modeChanges").innerHTML = `
+            <div class="mode-change">
+              <div class="form-group">
+                <label>Date and Time:</label>
+                <input type="datetime-local" class="mode-time" required />
+              </div>
+              <div class="form-group">
+                <label>Mode:</label>
+                <select class="mode-select" required>
+                  <option value="checkin">Check-in Mode</option>
+                  <option value="checkout">Check-out Mode</option>
+                  <option value="arriving_soon">Arriving Soon Mode</option>
+                </select>
+              </div>
+            </div>
+          `;
+            // Add remove button to the new initial mode change
+            const newInitialRemoveButton = document.createElement("button");
+            newInitialRemoveButton.type = "button";
+            newInitialRemoveButton.className =
+              "remove-mode-change btn-secondary";
+            newInitialRemoveButton.textContent = "Remove";
+            newInitialRemoveButton.addEventListener("click", () => {
+              const modeChanges = document.getElementById("modeChanges");
+              if (modeChanges.children.length > 1) {
+                modeChanges.removeChild(modeChanges.firstElementChild);
+              } else {
+                alert("At least one mode change is required");
+              }
+            });
+            document
+              .querySelector(".mode-change")
+              .appendChild(newInitialRemoveButton);
+
+            // Refresh the visits list
+            await loadVisits();
           } catch (error) {
-            console.log("Error adding visit:", error);
-            alert("Failed to add visit");
+            console.error("Error scheduling visit:", error);
+            alert("Failed to schedule visit");
           }
         });
-
-      function addModeChange() {
-        const modeChangesDiv = document.getElementById("modeChangesList");
-        const currentCount = modeChangesDiv.children.length;
-
-        if (currentCount >= 3) {
-          alert("Maximum of 3 mode changes allowed");
-          return;
-        }
-
-        const newModeChange = document.createElement("div");
-        newModeChange.className = "mode-change";
-        newModeChange.innerHTML = `
-          <input
-            type="time"
-            class="mode-time"
-            required
-            placeholder="Time"
-          />
-          <select class="mode-select" required>
-            <option value="checkin">Check-in Mode</option>
-            <option value="checkout">Check-out Mode</option>
-            <option value="arriving_soon">Arriving Soon Mode</option>
-          </select>
-          <button
-            type="button"
-            class="delete-btn"
-            onclick="removeModeChange(this)"
-          >
-            Remove
-          </button>
-        `;
-        modeChangesDiv.appendChild(newModeChange);
-      }
-
-      // Handle visit deletion
-      async function deleteVisit(id) {
-        if (!confirm("Are you sure you want to delete this visit?")) {
-          return;
-        }
-
-        try {
-          console.log("Deleting visit:", id);
-          const response = await fetch(`/api/visits/${id}`, {
-            method: "DELETE",
-          });
-
-          if (response.ok) {
-            refreshData();
-          } else {
-            alert("Failed to delete visit");
-          }
-        } catch (error) {
-          console.log("Error deleting visit:", error);
-          alert("Failed to delete visit");
-        }
-      }
 
       // Add config management functions
       async function loadConfig() {
