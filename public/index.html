@@ -245,15 +245,72 @@
       }
 
       .mode-change {
-        display: grid;
-        grid-template-columns: 1fr 1fr auto;
-        gap: 15px;
-        align-items: center;
-        margin-bottom: 15px;
-        padding: 10px;
-        background: white;
-        border-radius: 5px;
+        background: var(--card-bg);
+        padding: 1rem;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        position: relative;
+      }
+
+      .remove-mode-change {
+        position: absolute;
+        top: 0.5rem;
+        right: 0.5rem;
+        padding: 0.25rem 0.5rem;
+        font-size: 0.875rem;
+        background: var(--danger-color);
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+
+      .remove-mode-change:hover {
+        background: var(--danger-hover);
+      }
+
+      #addModeChange {
+        margin: 1rem 0;
+        width: 100%;
+        padding: 0.75rem;
+        font-size: 1rem;
+      }
+
+      #visitForm button[type="submit"] {
+        width: 100%;
+        padding: 0.75rem;
+        font-size: 1rem;
+        margin-top: 1rem;
+      }
+
+      .mode-change .form-group {
+        margin-bottom: 0.5rem;
+      }
+
+      .mode-change .form-group:last-child {
+        margin-bottom: 0;
+      }
+
+      .mode-change label {
+        display: block;
+        margin-bottom: 0.25rem;
+        color: var(--text-color);
+      }
+
+      .mode-change input,
+      .mode-change select {
+        width: 100%;
+        padding: 0.5rem;
         border: 1px solid var(--border-color);
+        border-radius: 4px;
+        background: var(--input-bg);
+        color: var(--text-color);
+      }
+
+      .mode-change input:focus,
+      .mode-change select:focus {
+        border-color: var(--primary-color);
+        outline: none;
       }
 
       .add-mode-btn {
