@@ -130,16 +130,28 @@ const formatDate = (date) => {
   return targetDate.format("MMM D, YYYY h:mm A z");
 };
 
-const setMode = async (mode) => {
+const setMode = async (modeName) => {
+  let modes;
   try {
-    let modeUrl = getHubitatUrl(`modes/${mode}`);
-    const response = await axios.get(modeUrl);
-    log.info(`Set mode to ${mode} via GET ${modeUrl}`);
-    return response.data;
-  } catch (error) {
-    log.error(`Error setting mode: ${error.message}`);
-    throw error;
+    modes = await axios.get(getHubitatUrl("modes"));
+  } catch (err) {
+    throw new Error(err);
   }
+
+  let mode = modes.data.find(
+    (n) => n.name.toUpperCase() == modeName.toUpperCase()
+  );
+  if (!mode) return log.error(`Could not find mode ${modeName}`);
+
+  if (mode.active) {
+    return log.info(`Mode ${modeName} is already active.`);
+  }
+  try {
+    await axios.get(getHubitatUrl(`modes/${mode.id}`));
+  } catch (e) {
+    throw new Error(err);
+  }
+  log.info(`Successfully set mode to ${modeName}`);
 };
 
 const setLockCode = async (phoneNumber, reservationNumber) => {
