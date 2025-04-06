@@ -130,27 +130,54 @@ const formatDate = (date) => {
   return targetDate.format("MMM D, YYYY h:mm A z");
 };
 
-const setMode = async (modeName) => {
-  let modes;
-  try {
-    modes = await axios.get(getHubitatUrl("modes"));
-  } catch (err) {
-    throw new Error(err);
-  }
+// Keep track of recent mode changes to prevent duplicates
+const recentModeChanges = new Map();
+const MODE_CHANGE_COOLDOWN = 60000; // 1 minute cooldown between identical mode changes
 
-  let mode = modes.data.find(
-    (n) => n.name.toUpperCase() == modeName.toUpperCase()
-  );
-  if (!mode) return log.error(`Could not find mode ${modeName}`);
+// Consolidated function for mode changes
+const handleModeChange = async (modeName, reason = '') => {
+    const now = Date.now();
+    const key = `${modeName}-${reason}`;
+    
+    // Check if this exact mode change was made recently
+    const lastChange = recentModeChanges.get(key);
+    if (lastChange && (now - lastChange) < MODE_CHANGE_COOLDOWN) {
+        log.debug(`Skipping duplicate mode change to ${modeName} (${reason}) - too soon after last change`);
+        return;
+    }
 
-  if (mode.active) {
-    return log.debug(`Mode ${modeName} is already active.`);
-  }
-  try {
-    await axios.get(getHubitatUrl(`modes/${mode.id}`));
-  } catch (e) {
-    throw new Error(err);
-  }
+    try {
+        const modes = await axios.get(getHubitatUrl("modes"));
+        const mode = modes.data.find(
+            (n) => n.name.toUpperCase() == modeName.toUpperCase()
+        );
+
+        if (!mode) {
+            log.error(`Could not find mode ${modeName}`);
+            return;
+        }
+
+        if (mode.active) {
+            log.debug(`Mode ${modeName} is already active.`);
+            return;
+        }
+
+        await axios.get(getHubitatUrl(`modes/${mode.id}`));
+        log.info(`Successfully set mode to ${modeName} ${reason ? `(${reason})` : ''}`);
+        
+        // Record this mode change
+        recentModeChanges.set(key, now);
+        
+        // Clean up old entries from recentModeChanges
+        for (const [changeKey, timestamp] of recentModeChanges.entries()) {
+            if (now - timestamp > MODE_CHANGE_COOLDOWN) {
+                recentModeChanges.delete(changeKey);
+            }
+        }
+    } catch (error) {
+        log.error(`Error setting mode to ${modeName}: ${error}`);
+        throw error;
+    }
 };
 
 const setLockCode = async (phoneNumber, reservationNumber) => {
@@ -315,52 +342,55 @@ const getiCalEvents = async () => {
   return events;
 };
 
+// Update the runCheckInActions function
 const runCheckInActions = async (ph, reservationNumber) => {
-  log.info("Running check in actions");
-  try {
-    await setLockCode(ph, reservationNumber);
-  } catch (err) {
-    log.error(`Error setting lock code: ${err}`);
-  }
-
-  let mode = config.get("checkin_mode");
-  if (mode) {
+    log.info("Running check in actions");
     try {
-      await setMode(mode);
+        await setLockCode(ph, reservationNumber);
     } catch (err) {
-      log.error(`Error setting mode: ${err}`);
+        log.error(`Error setting lock code: ${err}`);
     }
-  }
+
+    let mode = config.get("checkin_mode");
+    if (mode) {
+        try {
+            await handleModeChange(mode, `Check-in for reservation ${reservationNumber}`);
+        } catch (err) {
+            log.error(`Error setting mode: ${err}`);
+        }
+    }
 };
 
+// Update the runCheckOutActions function
 const runCheckOutActions = async (ph, reservationNumber) => {
-  log.info("Running check out actions");
-  try {
-    await removeLockCode(ph);
-  } catch (err) {
-    log.error(`Error removing lock code: ${err}`);
-  }
-  let mode = config.get("checkout_mode");
-  if (mode) {
+    log.info("Running check out actions");
     try {
-      await setMode(mode);
+        await removeLockCode(ph);
     } catch (err) {
-      log.error(`Error setting mode: ${err}`);
+        log.error(`Error removing lock code: ${err}`);
     }
-  }
+    let mode = config.get("checkout_mode");
+    if (mode) {
+        try {
+            await handleModeChange(mode, `Check-out for reservation ${reservationNumber}`);
+        } catch (err) {
+            log.error(`Error setting mode: ${err}`);
+        }
+    }
 };
 
+// Update the runArrivingSoonActions function
 const runArrivingSoonActions = async (ph, reservationNumber) => {
-  let mode = config.get("arriving_soon_mode");
-  if (mode) {
-    try {
-      await setMode(mode);
-    } catch (err) {
-      log.error(`Error setting mode: ${err}`);
+    let mode = config.get("arriving_soon_mode");
+    if (mode) {
+        try {
+            await handleModeChange(mode, `Arriving soon for reservation ${reservationNumber}`);
+        } catch (err) {
+            log.error(`Error setting mode: ${err}`);
+        }
+    } else {
+        log.error(`No arriving_soon_mode set in config`);
     }
-  } else {
-    log.error(`No arriving_soon_mode set in config`);
-  }
 };
 
 const dateInPast = function (firstDate) {
@@ -697,96 +727,82 @@ const writeScheduledVisits = async (visits) => {
   }
 };
 
-// Modified scheduleVisit function to use optimized file operations
+// Update the scheduleVisit function to use the new handleModeChange
 const scheduleVisit = (visit) => {
-  log.debug(
-    `Scheduling visit ${visit.id} with ${visit.modeChanges.length} mode changes`
-  );
+    log.debug(`Scheduling visit ${visit.id} with ${visit.modeChanges.length} mode changes`);
 
-  // Cancel existing jobs if they exist
-  if (scheduledVisitJobs.has(visit.id)) {
-    log.debug(`Cancelling existing jobs for visit ${visit.id}`);
-    scheduledVisitJobs.get(visit.id).forEach((job) => {
-      if (job && typeof job.cancel === "function") {
-        job.cancel();
-      }
-    });
-    scheduledVisitJobs.delete(visit.id);
-  }
-
-  // Create jobs for each mode change
-  const jobs = visit.modeChanges.map(async (change) => {
-    const changeDate = moment(change.time).tz(config.get("timezone")).toDate();
-
-    // Get the appropriate mode from config based on the selected mode
-    let mode;
-    switch (change.mode) {
-      case "checkin":
-        mode = config.get("checkin_mode");
-        break;
-      case "checkout":
-        mode = config.get("checkout_mode");
-        break;
-      case "arriving_soon":
-        mode = config.get("arriving_soon_mode");
-        break;
-      default:
-        log.error(`Invalid mode selected: ${change.mode}`);
-        return null;
+    // Cancel existing jobs if they exist
+    if (scheduledVisitJobs.has(visit.id)) {
+        log.debug(`Cancelling existing jobs for visit ${visit.id}`);
+        scheduledVisitJobs.get(visit.id).forEach((job) => {
+            if (job && typeof job.cancel === "function") {
+                job.cancel();
+            }
+        });
+        scheduledVisitJobs.delete(visit.id);
     }
 
-    if (!mode) {
-      log.error(`No mode configured for ${change.mode}`);
-      return null;
-    }
+    // Create jobs for each mode change
+    const jobs = visit.modeChanges.map(async (change) => {
+        const changeDate = moment(change.time).tz(config.get("timezone")).toDate();
 
-    return schedule.scheduleJob(changeDate, async () => {
-      try {
-        log.debug(
-          `Executing mode change for visit ${
-            visit.id
-          } - Setting mode to ${mode} at ${moment(changeDate).format(
-            "MMM D, YYYY h:mm A z"
-          )}`
-        );
-        await setMode(mode);
-        log.info(
-          `Successfully set mode to ${mode} for visit ${visit.id} at ${moment(
-            changeDate
-          ).format("MMM D, YYYY h:mm A z")}`
-        );
-
-        // If this is the first mode change and phone number is provided, set the lock code
-        if (visit.phone && change === visit.modeChanges[0]) {
-          try {
-            await setLockCode(visit.phone, `${visit.name}`);
-          } catch (err) {}
+        // Get the appropriate mode from config based on the selected mode
+        let mode;
+        switch (change.mode) {
+            case "checkin":
+                mode = config.get("checkin_mode");
+                break;
+            case "checkout":
+                mode = config.get("checkout_mode");
+                break;
+            case "arriving_soon":
+                mode = config.get("arriving_soon_mode");
+                break;
+            default:
+                log.error(`Invalid mode selected: ${change.mode}`);
+                return null;
         }
 
-        // If this is the last mode change, clean up
-        if (change === visit.modeChanges[visit.modeChanges.length - 1]) {
-          // Remove the visit from the file
-          const visits = await readScheduledVisits();
-          const updatedVisits = visits.filter((v) => v.id !== visit.id);
-          await writeScheduledVisits(updatedVisits);
-          log.debug(`Removed completed visit ${visit.id} from storage`);
-
-          // Remove the jobs from our map
-          scheduledVisitJobs.delete(visit.id);
-          log.debug(`Cleaned up jobs for visit ${visit.id}`);
+        if (!mode) {
+            log.error(`No mode configured for ${change.mode}`);
+            return null;
         }
-      } catch (err) {
-        log.error(`Error executing mode change for visit ${visit.id}: ${err}`);
-      }
+
+        return schedule.scheduleJob(changeDate, async () => {
+            try {
+                await handleModeChange(mode, `Scheduled visit ${visit.id}`);
+
+                // If this is the first mode change and phone number is provided, set the lock code
+                if (visit.phone && change === visit.modeChanges[0]) {
+                    try {
+                        await setLockCode(visit.phone, `${visit.name}`);
+                    } catch (err) {
+                        log.error(`Error setting lock code: ${err}`);
+                    }
+                }
+
+                // If this is the last mode change, clean up
+                if (change === visit.modeChanges[visit.modeChanges.length - 1]) {
+                    // Remove the visit from the file
+                    const visits = await readScheduledVisits();
+                    const updatedVisits = visits.filter((v) => v.id !== visit.id);
+                    await writeScheduledVisits(updatedVisits);
+                    log.debug(`Removed completed visit ${visit.id} from storage`);
+
+                    // Remove the jobs from our map
+                    scheduledVisitJobs.delete(visit.id);
+                    log.debug(`Cleaned up jobs for visit ${visit.id}`);
+                }
+            } catch (err) {
+                log.error(`Error executing mode change for visit ${visit.id}: ${err}`);
+            }
+        });
     });
-  });
 
-  // Filter out null jobs and store the rest
-  const validJobs = jobs.filter((job) => job !== null);
-  scheduledVisitJobs.set(visit.id, validJobs);
-  log.debug(
-    `Successfully scheduled ${validJobs.length} jobs for visit ${visit.id}`
-  );
+    // Filter out null jobs and store the rest
+    const validJobs = jobs.filter((job) => job !== null);
+    scheduledVisitJobs.set(visit.id, validJobs);
+    log.debug(`Successfully scheduled ${validJobs.length} jobs for visit ${visit.id}`);
 };
 
 // Function to initialize scheduled visits
