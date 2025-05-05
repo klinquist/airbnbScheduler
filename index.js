@@ -502,7 +502,6 @@ const getSchedules = async (firstRun) => {
     if (config.get("arrivingSoonTime")) {
       log.debug(`Processing arriving soon time for reservation ${reservationNumber}`);
       arrivingSoonStart = convertStrToDate(config.get("arrivingSoonTime"));
-      log.debug(`Converted arriving soon time: ${JSON.stringify(arrivingSoonStart)}`);
       
       // Create the base date from the check-in date
       arrivingSoonDate = new Date(
