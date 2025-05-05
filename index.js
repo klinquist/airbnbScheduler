@@ -503,22 +503,23 @@ const getSchedules = async (firstRun) => {
       log.debug(`Processing arriving soon time for reservation ${reservationNumber}`);
       arrivingSoonStart = convertStrToDate(config.get("arrivingSoonTime"));
       log.debug(`Converted arriving soon time: ${JSON.stringify(arrivingSoonStart)}`);
-      if (config.get("arrivingSoonDayOffset")) {
-        // Create the base date from the check-in date
-        arrivingSoonDate = new Date(
-          events[i].start.getUTCFullYear(),
-          events[i].start.getMonth(),
-          events[i].start.getDate(),
-          arrivingSoonStart.hr,
-          arrivingSoonStart.min,
-          arrivingSoonStart.sec
-        );
-        // Apply the day offset
-        arrivingSoonDate.setDate(
-          arrivingSoonDate.getDate() + config.get("arrivingSoonDayOffset")
-        );
-        log.debug(`Calculated arriving soon date: ${formatDate(arrivingSoonDate)}`);
-      }
+      
+      // Create the base date from the check-in date
+      arrivingSoonDate = new Date(
+        events[i].start.getUTCFullYear(),
+        events[i].start.getMonth(),
+        events[i].start.getDate(),
+        arrivingSoonStart.hr,
+        arrivingSoonStart.min,
+        arrivingSoonStart.sec
+      );
+      
+      // Apply the day offset (default to 0 if not set)
+      const dayOffset = config.has("arrivingSoonDayOffset") ? config.get("arrivingSoonDayOffset") : 0;
+      arrivingSoonDate.setDate(
+        arrivingSoonDate.getDate() + dayOffset
+      );
+      log.debug(`Calculated arriving soon date: ${formatDate(arrivingSoonDate)}`);
     }
 
     // Skip if the reservation is in the past
