@@ -499,10 +499,18 @@ const getSchedules = async (firstRun) => {
     if (config.get("arrivingSoonTime")) {
       arrivingSoonStart = convertStrToDate(config.get("arrivingSoonTime"));
       if (config.get("arrivingSoonDayOffset")) {
+        // Create the base date from the check-in date
         arrivingSoonDate = new Date(
-          arrivingSoonDate.setDate(
-            arrivingSoonDate.getDate() + config.get("arrivingSoonDayOffset")
-          )
+          events[i].start.getUTCFullYear(),
+          events[i].start.getMonth(),
+          events[i].start.getDate(),
+          arrivingSoonStart.hr,
+          arrivingSoonStart.min,
+          arrivingSoonStart.sec
+        );
+        // Apply the day offset
+        arrivingSoonDate.setDate(
+          arrivingSoonDate.getDate() + config.get("arrivingSoonDayOffset")
         );
       }
     }
