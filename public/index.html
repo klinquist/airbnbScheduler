@@ -1,1026 +1,1123 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Airbnb Lock Code Manager</title>
-    <style>
-      :root {
-        --primary-color: #2196f3;
-        --secondary-color: #1976d2;
-        --success-color: #4caf50;
-        --danger-color: #f44336;
-        --text-color: #333;
-        --bg-color: #f5f5f5;
-        --card-bg: #ffffff;
-        --border-color: #e0e0e0;
-      }
-
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-          Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
-      }
-
-      body {
-        background-color: var(--bg-color);
-        color: var(--text-color);
-        line-height: 1.6;
-        padding: 20px;
-      }
-
-      .container {
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: 20px;
-      }
-
-      .header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 30px;
-      }
-
-      .header h1 {
-        color: var(--primary-color);
-        font-size: 2em;
-        font-weight: 600;
-      }
-
-      .header-controls {
-        display: flex;
-        align-items: center;
-        gap: 15px;
-      }
-
-      .mode-selector {
-        position: relative;
-      }
-
-      .current-mode-btn {
-        background-color: var(--primary-color);
-        color: white;
-        border: none;
-        padding: 10px 20px;
-        border-radius: 5px;
-        cursor: pointer;
-        font-size: 1em;
-        transition: background-color 0.3s ease;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-      }
-
-      .current-mode-btn:hover {
-        background-color: var(--secondary-color);
-      }
-
-      .mode-popup {
-        position: absolute;
-        top: 100%;
-        right: 0;
-        background: var(--card-bg);
-        border-radius: 8px;
-        padding: 20px;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-        min-width: 250px;
-        display: none;
-        z-index: 1000;
-      }
-
-      .mode-popup.active {
-        display: block;
-        animation: fadeIn 0.3s ease;
-      }
-
-      .mode-popup h3 {
-        margin-bottom: 15px;
-        color: var(--primary-color);
-      }
-
-      .mode-popup select {
-        width: 100%;
-        padding: 8px;
-        margin-bottom: 15px;
-        border: 1px solid var(--border-color);
-        border-radius: 4px;
-      }
-
-      .mode-popup button {
-        width: 100%;
-        padding: 8px;
-        background-color: var(--primary-color);
-        color: white;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-      }
-
-      .mode-popup button:hover {
-        background-color: var(--secondary-color);
-      }
-
-      .refresh-btn {
-        background-color: var(--primary-color);
-        color: white;
-        border: none;
-        padding: 10px 20px;
-        border-radius: 5px;
-        cursor: pointer;
-        font-size: 1em;
-        transition: background-color 0.3s ease;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-      }
-
-      .refresh-btn:hover {
-        background-color: var(--secondary-color);
-      }
-
-      .section {
-        background: var(--card-bg);
-        border-radius: 10px;
-        padding: 25px;
-        margin-bottom: 25px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
-      }
-
-      .section:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-      }
-
-      .section h2 {
-        color: var(--primary-color);
-        margin-bottom: 20px;
-        font-size: 1.5em;
-        font-weight: 600;
-      }
-
-      .current-code {
-        display: flex;
-        align-items: center;
-        gap: 15px;
-        padding: 15px;
-        background: #e3f2fd;
-        border-radius: 8px;
-        margin-top: 15px;
-      }
-
-      .current-code span {
-        font-size: 1.2em;
-        font-weight: 500;
-      }
-
-      .tabs {
-        display: flex;
-        gap: 10px;
-        margin-bottom: 20px;
-        border-bottom: 2px solid var(--border-color);
-        padding-bottom: 10px;
-      }
-
-      .tab-btn {
-        background: none;
-        border: none;
-        padding: 10px 20px;
-        cursor: pointer;
-        font-size: 1em;
-        color: var(--text-color);
-        border-radius: 5px;
-        transition: all 0.3s ease;
-      }
-
-      .tab-btn.active {
-        background-color: var(--primary-color);
-        color: white;
-      }
-
-      .tab-btn:hover:not(.active) {
-        background-color: rgba(33, 150, 243, 0.1);
-      }
-
-      .tab-content {
-        display: none;
-      }
-
-      .tab-content.active {
-        display: block;
-        animation: fadeIn 0.3s ease;
-      }
-
-      @keyframes fadeIn {
-        from {
-          opacity: 0;
-          transform: translateY(10px);
-        }
-        to {
-          opacity: 1;
-          transform: translateY(0);
-        }
-      }
-
-      .reservation-list {
-        display: grid;
-        gap: 15px;
-      }
-
-      .reservation-item {
-        background: #f8f9fa;
-        padding: 15px;
-        border-radius: 8px;
-        border-left: 4px solid var(--primary-color);
-      }
-
-      .reservation-item.active {
-        border-left-color: var(--success-color);
-        background: #e8f5e9;
-      }
-
-      .reservation-item h3 {
-        margin-bottom: 8px;
-        color: var(--primary-color);
-      }
-
-      .reservation-item p {
-        margin: 5px 0;
-        color: #666;
-      }
-
-      .form-group {
-        margin-bottom: 20px;
-      }
-
-      .form-group label {
-        display: block;
-        margin-bottom: 8px;
-        font-weight: 500;
-        color: var(--text-color);
-      }
-
-      .form-group input,
-      .form-group select {
-        width: 100%;
-        padding: 10px;
-        border: 1px solid var(--border-color);
-        border-radius: 5px;
-        font-size: 1em;
-        transition: border-color 0.3s ease;
-      }
-
-      .form-group input:focus,
-      .form-group select:focus {
-        outline: none;
-        border-color: var(--primary-color);
-        box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.1);
-      }
-
-      .submit-btn {
-        background-color: var(--success-color);
-        color: white;
-        border: none;
-        padding: 12px 24px;
-        border-radius: 5px;
-        cursor: pointer;
-        font-size: 1em;
-        transition: background-color 0.3s ease;
-      }
-
-      .submit-btn:hover {
-        background-color: #388e3c;
-      }
-
-      .delete-btn {
-        background-color: var(--danger-color);
-        color: white;
-        border: none;
-        padding: 8px 16px;
-        border-radius: 5px;
-        cursor: pointer;
-        font-size: 0.9em;
-        transition: background-color 0.3s ease;
-      }
-
-      .delete-btn:hover {
-        background-color: #d32f2f;
-      }
-
-      .mode-changes {
-        margin-top: 20px;
-        padding: 15px;
-        background: #f8f9fa;
-        border-radius: 8px;
-      }
-
-      .mode-change {
-        background: var(--card-bg);
-        padding: 1rem;
-        border-radius: 8px;
-        margin-bottom: 1rem;
-        position: relative;
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-      }
-
-      .mode-change .form-group {
-        margin-bottom: 0;
-        flex: 1;
-      }
-
-      .mode-change .form-group:last-child {
-        flex: 0 0 200px;
-      }
-
-      .mode-change label {
-        display: block;
-        margin-bottom: 0.25rem;
-        color: var(--text-color);
-        font-size: 0.9em;
-      }
-
-      .mode-change input,
-      .mode-change select {
-        width: 100%;
-        padding: 0.5rem;
-        border: 1px solid var(--border-color);
-        border-radius: 4px;
-        background: var(--input-bg);
-        color: var(--text-color);
-      }
-
-      .remove-mode-change {
-        position: absolute;
-        top: 0.5rem;
-        right: 0.5rem;
-        padding: 0.25rem 0.5rem;
-        font-size: 0.875rem;
-        background: var(--danger-color);
-        color: white;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-      }
-
-      .remove-mode-change:hover {
-        background: var(--danger-hover);
-      }
-
-      #addModeChange {
-        margin: 1rem 0;
-        width: 100%;
-        padding: 0.75rem;
-        font-size: 1rem;
-      }
-
-      #visitForm button[type="submit"] {
-        width: 100%;
-        padding: 0.75rem;
-        font-size: 1rem;
-        margin-top: 1rem;
-      }
-
-      .add-mode-btn {
-        background-color: var(--primary-color);
-        color: white;
-        border: none;
-        padding: 8px 16px;
-        border-radius: 5px;
-        cursor: pointer;
-        font-size: 0.9em;
-        transition: background-color 0.3s ease;
-        margin-top: 10px;
-      }
-
-      .add-mode-btn:hover {
-        background-color: var(--secondary-color);
-      }
-
-      .add-mode-btn:disabled {
-        background-color: #ccc;
-        cursor: not-allowed;
-      }
-
-      .config-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        gap: 20px;
-      }
-
-      .config-section {
-        background: #f8f9fa;
-        padding: 20px;
-        border-radius: 8px;
-      }
-
-      .config-section h3 {
-        color: var(--primary-color);
-        margin-bottom: 15px;
-        font-size: 1.2em;
-      }
-
-      .save-config-btn {
-        background-color: var(--success-color);
-        color: white;
-        border: none;
-        padding: 12px 24px;
-        border-radius: 5px;
-        cursor: pointer;
-        font-size: 1em;
-        transition: background-color 0.3s ease;
-        margin-top: 20px;
-      }
-
-      .save-config-btn:hover {
-        background-color: #388e3c;
-      }
-
-      @media (max-width: 768px) {
-        .container {
-          padding: 10px;
-        }
-
-        .header {
-          flex-direction: column;
-          align-items: flex-start;
-          gap: 15px;
-        }
-
-        .header h1 {
-          font-size: 1.5em;
-        }
-
-        .header-controls {
-          width: 100%;
-          justify-content: space-between;
-        }
-
-        .current-mode-btn,
-        .refresh-btn {
-          padding: 8px 15px;
-          font-size: 0.9em;
-        }
-
-        .mode-popup {
-          position: fixed;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
-          width: 90%;
-          max-width: 300px;
-          max-height: 90vh;
-          overflow-y: auto;
-        }
-
-        .section {
-          padding: 15px;
-          margin-bottom: 15px;
-        }
-
-        .tabs {
-          flex-wrap: wrap;
-          gap: 5px;
-        }
-
-        .tab-btn {
-          padding: 8px 15px;
-          font-size: 0.9em;
-          flex: 1 1 auto;
-          min-width: 100px;
-          text-align: center;
-        }
-
-        .reservation-item {
-          padding: 12px;
-        }
-
-        .form-group input,
-        .form-group select {
-          padding: 8px;
-          font-size: 16px; /* Prevents zoom on iOS */
-        }
-
-        .mode-change {
-          flex-direction: column;
-          gap: 10px;
-        }
-
-        .mode-change .form-group:last-child {
-          flex: 1;
-          width: 100%;
-        }
-
-        .config-grid {
-          grid-template-columns: 1fr;
-        }
-
-        .config-section {
-          padding: 15px;
-        }
-
-        .current-code {
-          padding: 12px;
-          font-size: 1em;
-        }
-
-        .delete-btn,
-        .remove-mode-change {
-          padding: 6px 12px;
-          font-size: 0.8em;
-        }
-
-        #addModeChange,
-        #visitForm button[type="submit"] {
-          padding: 10px;
-          font-size: 0.9em;
-        }
-
-        .save-config-btn {
-          width: 100%;
-          padding: 10px;
-          font-size: 0.9em;
-        }
-      }
-
-      /* Add touch-friendly styles for all devices */
-      button,
-      input,
-      select {
-        min-height: 44px; /* Minimum touch target size */
-      }
-
-      .current-mode-btn,
-      .refresh-btn,
-      .tab-btn,
-      .delete-btn,
-      .remove-mode-change {
-        touch-action: manipulation; /* Improves touch response */
-      }
-
-      /* Prevent text selection on buttons */
-      button {
-        user-select: none;
-        -webkit-user-select: none;
-      }
-
-      /* Improve form input readability on mobile */
-      input[type="text"],
-      input[type="tel"],
-      input[type="number"],
-      input[type="time"],
-      input[type="datetime-local"],
-      select {
-        font-size: 16px; /* Prevents zoom on iOS */
-        -webkit-appearance: none;
-        appearance: none;
-        border-radius: 4px;
-        padding: 8px 12px;
-      }
-
-      /* Add visual feedback for touch interactions */
-      button:active,
-      .current-mode-btn:active,
-      .refresh-btn:active {
-        transform: scale(0.98);
-      }
-
-      /* Improve modal backdrop for mobile */
-      .mode-popup.active {
-        background: var(--card-bg);
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-      }
-
-      /* Add a subtle animation for better mobile UX */
-      @keyframes slideUp {
-        from {
-          transform: translate(-50%, 100%);
-          opacity: 0;
-        }
-        to {
-          transform: translate(-50%, -50%);
-          opacity: 1;
-        }
-      }
-
-      .mode-popup.active {
-        animation: slideUp 0.3s ease-out;
-      }
-    </style>
-  </head>
-  <body>
-    <div class="container">
-      <div class="header">
-        <h1>Airbnb Lock Code Manager</h1>
-        <div class="header-controls">
-          <div class="mode-selector">
-            <button class="current-mode-btn" id="currentModeBtn">
-              <span id="currentModeText">Loading mode...</span>
-            </button>
-            <div class="mode-popup" id="modePopup">
-              <h3>Change Mode</h3>
-              <select id="modeSelect">
-                <option value="">Loading modes...</option>
-              </select>
-              <button id="changeModeBtn">Change Mode</button>
-            </div>
-          </div>
-          <button class="refresh-btn" onclick="refreshData()">
-            <span>🔄</span> Refresh
-          </button>
-        </div>
-      </div>
-
-      <div class="section">
-        <h2>Current Active Code</h2>
-        <div class="current-code">
-          <span id="currentCode">Loading...</span>
-        </div>
-      </div>
-
-      <div class="section">
-        <div class="tabs">
-          <button class="tab-btn active" onclick="switchTab('airbnb')">
-            Airbnb Reservations
-          </button>
-          <button class="tab-btn" onclick="switchTab('visits')">
-            Manual Visits
-          </button>
-          <button class="tab-btn" onclick="switchTab('config')">
-            Configuration
-          </button>
-        </div>
-
-        <div id="airbnb" class="tab-content active">
-          <div class="reservation-list" id="reservationList">
-            Loading reservations...
-          </div>
-        </div>
-
-        <div id="visits" class="tab-content">
-          <div class="reservation-list" id="visitList">Loading visits...</div>
-          <div class="card">
-            <h2>Add Manual Visit</h2>
-            <form id="visitForm">
-              <div class="form-group">
-                <label for="visitName">Name:</label>
-                <input type="text" id="visitName" required />
-              </div>
-              <div class="form-group">
-                <label for="visitPhone">Phone Number (optional):</label>
-                <input
-                  type="tel"
-                  id="visitPhone"
-                  placeholder="Leave blank to skip lock coding"
-                />
-              </div>
-              <div id="modeChanges">
-                <div class="mode-change">
-                  <div class="form-group">
-                    <label>Date and Time</label>
-                    <input type="datetime-local" class="mode-time" required />
-                  </div>
-                  <div class="form-group">
-                    <label>Mode</label>
-                    <select class="mode-select" required>
-                      <option value="checkin">Check-in Mode</option>
-                      <option value="checkout">Check-out Mode</option>
-                      <option value="arriving_soon">Arriving Soon Mode</option>
-                    </select>
-                  </div>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Airbnb Lock Code Manager</title>
+        <style>
+            :root {
+                --primary-color: #2196f3;
+                --secondary-color: #1976d2;
+                --success-color: #4caf50;
+                --danger-color: #f44336;
+                --text-color: #333;
+                --bg-color: #f5f5f5;
+                --card-bg: #ffffff;
+                --border-color: #e0e0e0;
+            }
+
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI',
+                    Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans',
+                    'Helvetica Neue', sans-serif;
+            }
+
+            body {
+                background-color: var(--bg-color);
+                color: var(--text-color);
+                line-height: 1.6;
+                padding: 20px;
+            }
+
+            .container {
+                max-width: 1200px;
+                margin: 0 auto;
+                padding: 20px;
+            }
+
+            .header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 30px;
+            }
+
+            .header h1 {
+                color: var(--primary-color);
+                font-size: 2em;
+                font-weight: 600;
+            }
+
+            .header-controls {
+                display: flex;
+                align-items: center;
+                gap: 15px;
+            }
+
+            .mode-selector {
+                position: relative;
+            }
+
+            .current-mode-btn {
+                background-color: var(--primary-color);
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 5px;
+                cursor: pointer;
+                font-size: 1em;
+                transition: background-color 0.3s ease;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+
+            .current-mode-btn:hover {
+                background-color: var(--secondary-color);
+            }
+
+            .mode-popup {
+                position: absolute;
+                top: 100%;
+                right: 0;
+                background: var(--card-bg);
+                border-radius: 8px;
+                padding: 20px;
+                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+                min-width: 250px;
+                display: none;
+                z-index: 1000;
+            }
+
+            .mode-popup.active {
+                display: block;
+                animation: fadeIn 0.3s ease;
+            }
+
+            .mode-popup h3 {
+                margin-bottom: 15px;
+                color: var(--primary-color);
+            }
+
+            .mode-popup select {
+                width: 100%;
+                padding: 8px;
+                margin-bottom: 15px;
+                border: 1px solid var(--border-color);
+                border-radius: 4px;
+            }
+
+            .mode-popup button {
+                width: 100%;
+                padding: 8px;
+                background-color: var(--primary-color);
+                color: white;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+            }
+
+            .mode-popup button:hover {
+                background-color: var(--secondary-color);
+            }
+
+            .refresh-btn {
+                background-color: var(--primary-color);
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 5px;
+                cursor: pointer;
+                font-size: 1em;
+                transition: background-color 0.3s ease;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+
+            .refresh-btn:hover {
+                background-color: var(--secondary-color);
+            }
+
+            .section {
+                background: var(--card-bg);
+                border-radius: 10px;
+                padding: 25px;
+                margin-bottom: 25px;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+                transition: transform 0.2s ease, box-shadow 0.2s ease;
+            }
+
+            .section:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+            }
+
+            .section h2 {
+                color: var(--primary-color);
+                margin-bottom: 20px;
+                font-size: 1.5em;
+                font-weight: 600;
+            }
+
+            .current-code {
+                display: flex;
+                align-items: center;
+                gap: 15px;
+                padding: 15px;
+                background: #e3f2fd;
+                border-radius: 8px;
+                margin-top: 15px;
+            }
+
+            .current-code span {
+                font-size: 1.2em;
+                font-weight: 500;
+            }
+
+            .tabs {
+                display: flex;
+                gap: 10px;
+                margin-bottom: 20px;
+                border-bottom: 2px solid var(--border-color);
+                padding-bottom: 10px;
+            }
+
+            .tab-btn {
+                background: none;
+                border: none;
+                padding: 10px 20px;
+                cursor: pointer;
+                font-size: 1em;
+                color: var(--text-color);
+                border-radius: 5px;
+                transition: all 0.3s ease;
+            }
+
+            .tab-btn.active {
+                background-color: var(--primary-color);
+                color: white;
+            }
+
+            .tab-btn:hover:not(.active) {
+                background-color: rgba(33, 150, 243, 0.1);
+            }
+
+            .tab-content {
+                display: none;
+            }
+
+            .tab-content.active {
+                display: block;
+                animation: fadeIn 0.3s ease;
+            }
+
+            @keyframes fadeIn {
+                from {
+                    opacity: 0;
+                    transform: translateY(10px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+
+            .reservation-list {
+                display: grid;
+                gap: 15px;
+            }
+
+            .reservation-item {
+                background: #f8f9fa;
+                padding: 15px;
+                border-radius: 8px;
+                border-left: 4px solid var(--primary-color);
+            }
+
+            .reservation-item.active {
+                border-left-color: var(--success-color);
+                background: #e8f5e9;
+            }
+
+            .reservation-item h3 {
+                margin-bottom: 8px;
+                color: var(--primary-color);
+            }
+
+            .reservation-item p {
+                margin: 5px 0;
+                color: #666;
+            }
+
+            .form-group {
+                margin-bottom: 20px;
+            }
+
+            .form-group label {
+                display: block;
+                margin-bottom: 8px;
+                font-weight: 500;
+                color: var(--text-color);
+            }
+
+            .form-group input,
+            .form-group select {
+                width: 100%;
+                padding: 10px;
+                border: 1px solid var(--border-color);
+                border-radius: 5px;
+                font-size: 1em;
+                transition: border-color 0.3s ease;
+            }
+
+            .form-group input:focus,
+            .form-group select:focus {
+                outline: none;
+                border-color: var(--primary-color);
+                box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.1);
+            }
+
+            .submit-btn {
+                background-color: var(--success-color);
+                color: white;
+                border: none;
+                padding: 12px 24px;
+                border-radius: 5px;
+                cursor: pointer;
+                font-size: 1em;
+                transition: background-color 0.3s ease;
+            }
+
+            .submit-btn:hover {
+                background-color: #388e3c;
+            }
+
+            .delete-btn {
+                background-color: var(--danger-color);
+                color: white;
+                border: none;
+                padding: 8px 16px;
+                border-radius: 5px;
+                cursor: pointer;
+                font-size: 0.9em;
+                transition: background-color 0.3s ease;
+            }
+
+            .delete-btn:hover {
+                background-color: #d32f2f;
+            }
+
+            .mode-changes {
+                margin-top: 20px;
+                padding: 15px;
+                background: #f8f9fa;
+                border-radius: 8px;
+            }
+
+            .mode-change {
+                background: var(--card-bg);
+                padding: 1rem;
+                border-radius: 8px;
+                margin-bottom: 1rem;
+                position: relative;
+                display: flex;
+                align-items: center;
+                gap: 1rem;
+            }
+
+            .mode-change .form-group {
+                margin-bottom: 0;
+                flex: 1;
+            }
+
+            .mode-change .form-group:last-child {
+                flex: 0 0 200px;
+            }
+
+            .mode-change label {
+                display: block;
+                margin-bottom: 0.25rem;
+                color: var(--text-color);
+                font-size: 0.9em;
+            }
+
+            .mode-change input,
+            .mode-change select {
+                width: 100%;
+                padding: 0.5rem;
+                border: 1px solid var(--border-color);
+                border-radius: 4px;
+                background: var(--input-bg);
+                color: var(--text-color);
+            }
+
+            .remove-mode-change {
+                position: absolute;
+                top: 0.5rem;
+                right: 0.5rem;
+                padding: 0.25rem 0.5rem;
+                font-size: 0.875rem;
+                background: var(--danger-color);
+                color: white;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+            }
+
+            .remove-mode-change:hover {
+                background: var(--danger-hover);
+            }
+
+            #addModeChange {
+                margin: 1rem 0;
+                width: 100%;
+                padding: 0.75rem;
+                font-size: 1rem;
+            }
+
+            #visitForm button[type='submit'] {
+                width: 100%;
+                padding: 0.75rem;
+                font-size: 1rem;
+                margin-top: 1rem;
+            }
+
+            .add-mode-btn {
+                background-color: var(--primary-color);
+                color: white;
+                border: none;
+                padding: 8px 16px;
+                border-radius: 5px;
+                cursor: pointer;
+                font-size: 0.9em;
+                transition: background-color 0.3s ease;
+                margin-top: 10px;
+            }
+
+            .add-mode-btn:hover {
+                background-color: var(--secondary-color);
+            }
+
+            .add-mode-btn:disabled {
+                background-color: #ccc;
+                cursor: not-allowed;
+            }
+
+            .config-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+                gap: 20px;
+            }
+
+            .config-section {
+                background: #f8f9fa;
+                padding: 20px;
+                border-radius: 8px;
+            }
+
+            .config-section h3 {
+                color: var(--primary-color);
+                margin-bottom: 15px;
+                font-size: 1.2em;
+            }
+
+            .save-config-btn {
+                background-color: var(--success-color);
+                color: white;
+                border: none;
+                padding: 12px 24px;
+                border-radius: 5px;
+                cursor: pointer;
+                font-size: 1em;
+                transition: background-color 0.3s ease;
+                margin-top: 20px;
+            }
+
+            .save-config-btn:hover {
+                background-color: #388e3c;
+            }
+
+            @media (max-width: 768px) {
+                .container {
+                    padding: 10px;
+                }
+
+                .header {
+                    flex-direction: column;
+                    align-items: flex-start;
+                    gap: 15px;
+                }
+
+                .header h1 {
+                    font-size: 1.5em;
+                }
+
+                .header-controls {
+                    width: 100%;
+                    justify-content: space-between;
+                }
+
+                .current-mode-btn,
+                .refresh-btn {
+                    padding: 8px 15px;
+                    font-size: 0.9em;
+                }
+
+                .mode-popup {
+                    position: fixed;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    width: 90%;
+                    max-width: 300px;
+                    max-height: 90vh;
+                    overflow-y: auto;
+                }
+
+                .section {
+                    padding: 15px;
+                    margin-bottom: 15px;
+                }
+
+                .tabs {
+                    flex-wrap: wrap;
+                    gap: 5px;
+                }
+
+                .tab-btn {
+                    padding: 8px 15px;
+                    font-size: 0.9em;
+                    flex: 1 1 auto;
+                    min-width: 100px;
+                    text-align: center;
+                }
+
+                .reservation-item {
+                    padding: 12px;
+                }
+
+                .form-group input,
+                .form-group select {
+                    padding: 8px;
+                    font-size: 16px; /* Prevents zoom on iOS */
+                }
+
+                .mode-change {
+                    flex-direction: column;
+                    gap: 10px;
+                }
+
+                .mode-change .form-group:last-child {
+                    flex: 1;
+                    width: 100%;
+                }
+
+                .config-grid {
+                    grid-template-columns: 1fr;
+                }
+
+                .config-section {
+                    padding: 15px;
+                }
+
+                .current-code {
+                    padding: 12px;
+                    font-size: 1em;
+                }
+
+                .delete-btn,
+                .remove-mode-change {
+                    padding: 6px 12px;
+                    font-size: 0.8em;
+                }
+
+                #addModeChange,
+                #visitForm button[type='submit'] {
+                    padding: 10px;
+                    font-size: 0.9em;
+                }
+
+                .save-config-btn {
+                    width: 100%;
+                    padding: 10px;
+                    font-size: 0.9em;
+                }
+            }
+
+            /* Add touch-friendly styles for all devices */
+            button,
+            input,
+            select {
+                min-height: 44px; /* Minimum touch target size */
+            }
+
+            .current-mode-btn,
+            .refresh-btn,
+            .tab-btn,
+            .delete-btn,
+            .remove-mode-change {
+                touch-action: manipulation; /* Improves touch response */
+            }
+
+            /* Prevent text selection on buttons */
+            button {
+                user-select: none;
+                -webkit-user-select: none;
+            }
+
+            /* Improve form input readability on mobile */
+            input[type='text'],
+            input[type='tel'],
+            input[type='number'],
+            input[type='time'],
+            input[type='datetime-local'],
+            select {
+                font-size: 16px; /* Prevents zoom on iOS */
+                -webkit-appearance: none;
+                appearance: none;
+                border-radius: 4px;
+                padding: 8px 12px;
+            }
+
+            /* Add visual feedback for touch interactions */
+            button:active,
+            .current-mode-btn:active,
+            .refresh-btn:active {
+                transform: scale(0.98);
+            }
+
+            /* Improve modal backdrop for mobile */
+            .mode-popup.active {
+                background: var(--card-bg);
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            }
+
+            /* Add a subtle animation for better mobile UX */
+            @keyframes slideUp {
+                from {
+                    transform: translate(-50%, 100%);
+                    opacity: 0;
+                }
+                to {
+                    transform: translate(-50%, -50%);
+                    opacity: 1;
+                }
+            }
+
+            .mode-popup.active {
+                animation: slideUp 0.3s ease-out;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>Airbnb Lock Code Manager</h1>
+                <div class="header-controls">
+                    <div class="mode-selector">
+                        <button class="current-mode-btn" id="currentModeBtn">
+                            <span id="currentModeText">Loading mode...</span>
+                        </button>
+                        <div class="mode-popup" id="modePopup">
+                            <h3>Change Mode</h3>
+                            <select id="modeSelect">
+                                <option value="">Loading modes...</option>
+                            </select>
+                            <button id="changeModeBtn">Change Mode</button>
+                        </div>
+                    </div>
+                    <button class="refresh-btn" onclick="refreshData()">
+                        <span>🔄</span> Refresh
+                    </button>
                 </div>
-              </div>
-              <button type="button" id="addModeChange" class="btn-secondary">
-                Add Another Mode Change
-              </button>
-              <button type="submit" class="btn-primary">Schedule Visit</button>
-            </form>
-          </div>
-        </div>
-
-        <div id="config" class="tab-content">
-          <form id="configForm" onsubmit="saveConfig(event)">
-            <div class="config-grid">
-              <div class="config-section">
-                <h3>Schedule Times</h3>
-                <div class="form-group">
-                  <label for="arrivalScheduleTime">Arrival Time</label>
-                  <input
-                    type="time"
-                    id="arrivalScheduleTime"
-                    required
-                    step="300"
-                  />
-                </div>
-                <div class="form-group">
-                  <label for="departureScheduleTime">Departure Time</label>
-                  <input
-                    type="time"
-                    id="departureScheduleTime"
-                    required
-                    step="300"
-                  />
-                </div>
-                <div class="form-group">
-                  <label for="arrivingSoonTime">Arriving Soon Time</label>
-                  <input
-                    type="time"
-                    id="arrivingSoonTime"
-                    required
-                    step="300"
-                  />
-                </div>
-                <div class="form-group">
-                  <label for="arrivingSoonDayOffset"
-                    >Arriving Soon Day Offset</label
-                  >
-                  <input
-                    type="number"
-                    id="arrivingSoonDayOffset"
-                    required
-                    min="0"
-                  />
-                </div>
-              </div>
-
-              <div class="config-section">
-                <h3>Mode Settings</h3>
-                <div class="form-group">
-                  <label for="checkin_mode">Check-in Mode</label>
-                  <input type="text" id="checkin_mode" required />
-                </div>
-                <div class="form-group">
-                  <label for="checkout_mode">Check-out Mode</label>
-                  <input type="text" id="checkout_mode" required />
-                </div>
-                <div class="form-group">
-                  <label for="arriving_soon_mode">Arriving Soon Mode</label>
-                  <input type="text" id="arriving_soon_mode" required />
-                </div>
-              </div>
-
-              <div class="config-section">
-                <h3>Hubitat Settings</h3>
-                <div class="form-group">
-                  <label for="hubitat_ip">Hubitat IP</label>
-                  <input type="text" id="hubitat_ip" required />
-                </div>
-                <div class="form-group">
-                  <label for="hubitat_maker_api_access_token">
-                    Hubitat Maker API Token
-                  </label>
-                  <input
-                    type="text"
-                    id="hubitat_maker_api_access_token"
-                    required
-                  />
-                </div>
-                <div class="form-group">
-                  <label for="lock_code_slot">Lock Code Slot</label>
-                  <input type="text" id="lock_code_slot" required />
-                </div>
-                <div class="form-group">
-                  <label for="locks_to_code"
-                    >Locks to Code (comma-separated)</label
-                  >
-                  <input type="text" id="locks_to_code" required />
-                </div>
-              </div>
-
-              <div class="config-section">
-                <h3>Pushover Settings</h3>
-                <div class="form-group">
-                  <label for="pushover_user">User Key</label>
-                  <input type="text" id="pushover_user" required />
-                </div>
-                <div class="form-group">
-                  <label for="pushover_token">App Token</label>
-                  <input type="text" id="pushover_token" required />
-                </div>
-              </div>
             </div>
 
-            <button type="submit" class="save-config-btn">
-              Save Configuration
-            </button>
-          </form>
+            <div class="section">
+                <h2>Current Active Code</h2>
+                <div class="current-code">
+                    <span id="currentCode">Loading...</span>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="tabs">
+                    <button
+                        class="tab-btn active"
+                        onclick="switchTab('airbnb')"
+                    >
+                        Airbnb Reservations
+                    </button>
+                    <button class="tab-btn" onclick="switchTab('visits')">
+                        Manual Visits
+                    </button>
+                    <button class="tab-btn" onclick="switchTab('config')">
+                        Configuration
+                    </button>
+                </div>
+
+                <div id="airbnb" class="tab-content active">
+                    <div class="reservation-list" id="reservationList">
+                        Loading reservations...
+                    </div>
+                </div>
+
+                <div id="visits" class="tab-content">
+                    <div class="reservation-list" id="visitList">
+                        Loading visits...
+                    </div>
+                    <div class="card">
+                        <h2>Add Manual Visit</h2>
+                        <form id="visitForm">
+                            <div class="form-group">
+                                <label for="visitName">Name:</label>
+                                <input type="text" id="visitName" required />
+                            </div>
+                            <div class="form-group">
+                                <label for="visitPhone"
+                                    >Phone Number (optional):</label
+                                >
+                                <input
+                                    type="tel"
+                                    id="visitPhone"
+                                    placeholder="Leave blank to skip lock coding"
+                                />
+                            </div>
+                            <div id="modeChanges">
+                                <div class="mode-change">
+                                    <div class="form-group">
+                                        <label>Date and Time</label>
+                                        <input
+                                            type="datetime-local"
+                                            class="mode-time"
+                                            required
+                                        />
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Mode</label>
+                                        <select class="mode-select" required>
+                                            <option value="checkin">
+                                                Check-in Mode
+                                            </option>
+                                            <option value="checkout">
+                                                Check-out Mode
+                                            </option>
+                                            <option value="arriving_soon">
+                                                Arriving Soon Mode
+                                            </option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                id="addModeChange"
+                                class="btn-secondary"
+                            >
+                                Add Another Mode Change
+                            </button>
+                            <button type="submit" class="btn-primary">
+                                Schedule Visit
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <div id="config" class="tab-content">
+                    <form id="configForm" onsubmit="saveConfig(event)">
+                        <div class="config-grid">
+                            <div class="config-section">
+                                <h3>Schedule Times</h3>
+                                <div class="form-group">
+                                    <label for="arrivalScheduleTime"
+                                        >Arrival Time</label
+                                    >
+                                    <input
+                                        type="time"
+                                        id="arrivalScheduleTime"
+                                        required
+                                        step="300"
+                                    />
+                                </div>
+                                <div class="form-group">
+                                    <label for="departureScheduleTime"
+                                        >Departure Time</label
+                                    >
+                                    <input
+                                        type="time"
+                                        id="departureScheduleTime"
+                                        required
+                                        step="300"
+                                    />
+                                </div>
+                                <div class="form-group">
+                                    <label for="arrivingSoonTime"
+                                        >Arriving Soon Time</label
+                                    >
+                                    <input
+                                        type="time"
+                                        id="arrivingSoonTime"
+                                        required
+                                        step="300"
+                                    />
+                                </div>
+                                <div class="form-group">
+                                    <label for="arrivingSoonDayOffset"
+                                        >Arriving Soon Day Offset</label
+                                    >
+                                    <input
+                                        type="number"
+                                        id="arrivingSoonDayOffset"
+                                        required
+                                        min="0"
+                                    />
+                                </div>
+                            </div>
+
+                            <div class="config-section">
+                                <h3>Mode Settings</h3>
+                                <div class="form-group">
+                                    <label for="checkin_mode"
+                                        >Check-in Mode</label
+                                    >
+                                    <input
+                                        type="text"
+                                        id="checkin_mode"
+                                        required
+                                    />
+                                </div>
+                                <div class="form-group">
+                                    <label for="checkout_mode"
+                                        >Check-out Mode</label
+                                    >
+                                    <input
+                                        type="text"
+                                        id="checkout_mode"
+                                        required
+                                    />
+                                </div>
+                                <div class="form-group">
+                                    <label for="arriving_soon_mode"
+                                        >Arriving Soon Mode</label
+                                    >
+                                    <input
+                                        type="text"
+                                        id="arriving_soon_mode"
+                                        required
+                                    />
+                                </div>
+                            </div>
+
+                            <div class="config-section">
+                                <h3>Hubitat Settings</h3>
+                                <div class="form-group">
+                                    <label for="hubitat_ip">Hubitat IP</label>
+                                    <input
+                                        type="text"
+                                        id="hubitat_ip"
+                                        required
+                                    />
+                                </div>
+                                <div class="form-group">
+                                    <label for="hubitat_maker_api_access_token">
+                                        Hubitat Maker API Token
+                                    </label>
+                                    <input
+                                        type="text"
+                                        id="hubitat_maker_api_access_token"
+                                        required
+                                    />
+                                </div>
+                                <div class="form-group">
+                                    <label for="lock_code_slot"
+                                        >Lock Code Slot</label
+                                    >
+                                    <input
+                                        type="text"
+                                        id="lock_code_slot"
+                                        required
+                                    />
+                                </div>
+                                <div class="form-group">
+                                    <label for="locks_to_code"
+                                        >Locks to Code (comma-separated)</label
+                                    >
+                                    <input
+                                        type="text"
+                                        id="locks_to_code"
+                                        required
+                                    />
+                                </div>
+                            </div>
+
+                            <div class="config-section">
+                                <h3>Pushover Settings</h3>
+                                <div class="form-group">
+                                    <label for="pushover_user">User Key</label>
+                                    <input
+                                        type="text"
+                                        id="pushover_user"
+                                        required
+                                    />
+                                </div>
+                                <div class="form-group">
+                                    <label for="pushover_token"
+                                        >App Token</label
+                                    >
+                                    <input
+                                        type="text"
+                                        id="pushover_token"
+                                        required
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="save-config-btn">
+                            Save Configuration
+                        </button>
+                    </form>
+                </div>
+            </div>
         </div>
-      </div>
-    </div>
 
-    <script>
-      let timezone = "";
+        <script>
+            let timezone = '';
 
-      function formatDate(dateString) {
-        const date = new Date(dateString);
-        return date.toLocaleString("en-US", {
-          weekday: "long",
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-          hour: "numeric",
-          minute: "numeric",
-          timeZoneName: "short",
-        });
-      }
+            function formatDate(dateString) {
+                const date = new Date(dateString);
+                return date.toLocaleString('en-US', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    hour: 'numeric',
+                    minute: 'numeric',
+                    timeZoneName: 'short',
+                });
+            }
 
-      function switchTab(tabName) {
-        // Update tab buttons
-        document.querySelectorAll(".tab-btn").forEach((tab) => {
-          tab.classList.remove("active");
-        });
-        document
-          .querySelector(`.tab-btn[onclick="switchTab('${tabName}')"]`)
-          .classList.add("active");
+            function switchTab(tabName) {
+                // Update tab buttons
+                document.querySelectorAll('.tab-btn').forEach((tab) => {
+                    tab.classList.remove('active');
+                });
+                document
+                    .querySelector(
+                        `.tab-btn[onclick="switchTab('${tabName}')"]`
+                    )
+                    .classList.add('active');
 
-        // Update tab content
-        document.querySelectorAll(".tab-content").forEach((content) => {
-          content.classList.remove("active");
-        });
-        document.getElementById(tabName).classList.add("active");
-      }
+                // Update tab content
+                document.querySelectorAll('.tab-content').forEach((content) => {
+                    content.classList.remove('active');
+                });
+                document.getElementById(tabName).classList.add('active');
+            }
 
-      async function refreshData() {
-        try {
-          console.log("Refreshing data...");
-          await Promise.all([
-            loadConfig(),
-            loadSchedules(),
-            loadVisits(),
-            loadCurrentCode(),
-          ]);
-          console.log("Data refresh complete");
-        } catch (error) {
-          console.log("Error refreshing data:", error);
-          alert("Failed to refresh data");
-        }
-      }
+            async function refreshData() {
+                try {
+                    console.log('Refreshing data...');
+                    await Promise.all([
+                        loadConfig(),
+                        loadSchedules(),
+                        loadVisits(),
+                        loadCurrentCode(),
+                    ]);
+                    console.log('Data refresh complete');
+                } catch (error) {
+                    console.log('Error refreshing data:', error);
+                    alert('Failed to refresh data');
+                }
+            }
 
-      async function loadCurrentCode() {
-        try {
-          const response = await fetch("/api/current-code");
-          if (!response.ok) {
-            throw new Error("Failed to load current code");
-          }
-          const data = await response.json();
-          const currentCodeDiv = document.getElementById("currentCode");
-          if (data.currentCode && data.currentCode.length > 0) {
-            currentCodeDiv.textContent = `Code: ${data.currentCode[0]} (Reservation: ${data.currentCode[1]})`;
-          } else {
-            currentCodeDiv.textContent = "No active code";
-          }
-        } catch (error) {
-          console.log("Error loading current code:", error);
-          document.getElementById("currentCode").textContent =
-            "Error loading code";
-        }
-      }
+            async function loadCurrentCode() {
+                try {
+                    const response = await fetch('/api/current-code');
+                    if (!response.ok) {
+                        throw new Error('Failed to load current code');
+                    }
+                    const data = await response.json();
+                    const currentCodeDiv =
+                        document.getElementById('currentCode');
+                    if (data.currentCode && data.currentCode.length > 0) {
+                        currentCodeDiv.textContent = `Code: ${data.currentCode[0]} (Reservation: ${data.currentCode[1]})`;
+                    } else {
+                        currentCodeDiv.textContent = 'No active code';
+                    }
+                } catch (error) {
+                    console.log('Error loading current code:', error);
+                    document.getElementById('currentCode').textContent =
+                        'Error loading code';
+                }
+            }
 
-      async function loadSchedules() {
-        try {
-          const response = await fetch("/api/schedules");
-          if (!response.ok) {
-            throw new Error("Failed to load schedules");
-          }
-          const schedules = await response.json();
-          console.log("Loaded schedules:", schedules);
-          const schedulesDiv = document.getElementById("reservationList");
-          if (Object.keys(schedules).length === 0) {
-            schedulesDiv.innerHTML = "<div>No upcoming reservations</div>";
-            return;
-          }
+            async function loadSchedules() {
+                try {
+                    const response = await fetch('/api/schedules');
+                    if (!response.ok) {
+                        throw new Error('Failed to load schedules');
+                    }
+                    const schedules = await response.json();
+                    console.log('Loaded schedules:', schedules);
+                    const schedulesDiv =
+                        document.getElementById('reservationList');
+                    if (Object.keys(schedules).length === 0) {
+                        schedulesDiv.innerHTML =
+                            '<div>No upcoming reservations</div>';
+                        return;
+                    }
 
-          const now = new Date();
-          const scheduleHtml = Object.entries(schedules)
-            .map(([reservationNumber, schedule]) => {
-              const isActive =
-                new Date(schedule.start) <= now &&
-                new Date(schedule.end) >= now;
-              return `
-                                  <div class="reservation-item ${
-                                    isActive ? "active" : ""
-                                  }">
-                                      <div><strong>Reservation:</strong> ${reservationNumber}</div>
-                                      <div><strong>Code:</strong> ${
-                                        schedule.phoneNumber
-                                      }</div>
-                                      <div><strong>Check-in:</strong> ${formatDate(
-                                        schedule.start
-                                      )}</div>
-                                      <div><strong>Check-out:</strong> ${formatDate(
-                                        schedule.end
-                                      )}</div>
-                                      ${
-                                        schedule.arriving
-                                          ? `<div><strong>Arriving Soon:</strong> ${formatDate(
-                                              schedule.arriving
-                                            )}</div>`
-                                          : ""
-                                      }
-                                  </div>
-                              `;
-            })
-            .join("");
-          schedulesDiv.innerHTML = scheduleHtml;
-        } catch (error) {
-          console.log("Error loading schedules:", error);
-          alert("Failed to load schedules");
-        }
-      }
+                    const now = new Date();
+                    const scheduleHtml = Object.entries(schedules)
+                        .map(([reservationNumber, schedule]) => {
+                            const isActive =
+                                new Date(schedule.start) <= now &&
+                                new Date(schedule.end) >= now;
 
-      async function loadVisits() {
-        try {
-          const response = await fetch("/api/visits");
-          if (!response.ok) {
-            throw new Error("Failed to load visits");
-          }
-          const visits = await response.json();
-          console.log("Loaded visits:", visits);
-          const visitsDiv = document.getElementById("visitList");
-          if (visits.length === 0) {
-            visitsDiv.innerHTML = "<div>No manual visits scheduled</div>";
-            return;
-          }
+                            // Create an array of all schedule items with their dates
+                            const scheduleItems = [
+                                {
+                                    type: 'arriving',
+                                    date: schedule.arriving,
+                                    label: 'Arriving Soon',
+                                },
+                                {
+                                    type: 'start',
+                                    date: schedule.start,
+                                    label: 'Check-in',
+                                },
+                                {
+                                    type: 'end',
+                                    date: schedule.end,
+                                    label: 'Check-out',
+                                },
+                            ].filter((item) => item.date); // Remove any undefined dates
 
-          const now = new Date();
-          const visitsHtml = visits
-            .map((visit) => {
-              const isActive = visit.modeChanges.some(
-                (change) =>
-                  new Date(change.time) <= now && new Date(change.time) >= now
-              );
+                            // Sort by date
+                            scheduleItems.sort(
+                                (a, b) => new Date(a.date) - new Date(b.date)
+                            );
 
-              return `
-                <div class="reservation-item ${isActive ? "active" : ""}">
+                            return `
+                <div class="reservation-item ${isActive ? 'active' : ''}">
+                  <div><strong>Reservation:</strong> ${reservationNumber}</div>
+                  <div><strong>Code:</strong> ${schedule.phoneNumber}</div>
+                  ${scheduleItems
+                      .map(
+                          (item) =>
+                              `<div><strong>${
+                                  item.label
+                              }:</strong> ${formatDate(item.date)}</div>`
+                      )
+                      .join('')}
+                </div>
+              `;
+                        })
+                        .join('');
+                    schedulesDiv.innerHTML = scheduleHtml;
+                } catch (error) {
+                    console.log('Error loading schedules:', error);
+                    alert('Failed to load schedules');
+                }
+            }
+
+            async function loadVisits() {
+                try {
+                    const response = await fetch('/api/visits');
+                    if (!response.ok) {
+                        throw new Error('Failed to load visits');
+                    }
+                    const visits = await response.json();
+                    console.log('Loaded visits:', visits);
+                    const visitsDiv = document.getElementById('visitList');
+                    if (visits.length === 0) {
+                        visitsDiv.innerHTML =
+                            '<div>No manual visits scheduled</div>';
+                        return;
+                    }
+
+                    const now = new Date();
+                    const visitsHtml = visits
+                        .map((visit) => {
+                            const isActive = visit.modeChanges.some(
+                                (change) =>
+                                    new Date(change.time) <= now &&
+                                    new Date(change.time) >= now
+                            );
+
+                            return `
+                <div class="reservation-item ${isActive ? 'active' : ''}">
                   <div><strong>Name:</strong> ${visit.name}</div>
                   ${
-                    visit.phone
-                      ? `<div><strong>Phone:</strong> ${visit.phone}</div>`
-                      : ""
+                      visit.phone
+                          ? `<div><strong>Phone:</strong> ${visit.phone}</div>`
+                          : ''
                   }
                   <div><strong>Mode Changes:</strong></div>
                   <ul>
                     ${visit.modeChanges
-                      .map(
-                        (change) => `
+                        .map(
+                            (change) => `
                       <li>${formatDate(change.time)} - ${change.mode
-                          .replace("_", " ")
-                          .replace(/\b\w/g, (l) => l.toUpperCase())}</li>
+                                .replace('_', ' ')
+                                .replace(/\b\w/g, (l) => l.toUpperCase())}</li>
                     `
-                      )
-                      .join("")}
+                        )
+                        .join('')}
                   </ul>
                   <button class="delete-btn" onclick="deleteVisit('${
-                    visit.id
+                      visit.id
                   }')">Delete</button>
                 </div>
               `;
-            })
-            .join("");
-          visitsDiv.innerHTML = visitsHtml;
-        } catch (error) {
-          console.log("Error loading visits:", error);
-          alert("Failed to load visits");
-        }
-      }
+                        })
+                        .join('');
+                    visitsDiv.innerHTML = visitsHtml;
+                } catch (error) {
+                    console.log('Error loading visits:', error);
+                    alert('Failed to load visits');
+                }
+            }
 
-      // Add delete visit function
-      async function deleteVisit(id) {
-        if (!confirm("Are you sure you want to delete this visit?")) {
-          return;
-        }
+            // Add delete visit function
+            async function deleteVisit(id) {
+                if (!confirm('Are you sure you want to delete this visit?')) {
+                    return;
+                }
 
-        try {
-          const response = await fetch(`/api/visits/${id}`, {
-            method: "DELETE",
-          });
+                try {
+                    const response = await fetch(`/api/visits/${id}`, {
+                        method: 'DELETE',
+                    });
 
-          if (!response.ok) {
-            throw new Error("Failed to delete visit");
-          }
+                    if (!response.ok) {
+                        throw new Error('Failed to delete visit');
+                    }
 
-          // Refresh the visits list
-          await loadVisits();
-        } catch (error) {
-          console.error("Error deleting visit:", error);
-          alert("Failed to delete visit");
-        }
-      }
+                    // Refresh the visits list
+                    await loadVisits();
+                } catch (error) {
+                    console.error('Error deleting visit:', error);
+                    alert('Failed to delete visit');
+                }
+            }
 
-      // Add mode change button functionality
-      document.getElementById("addModeChange").addEventListener("click", () => {
-        const modeChanges = document.getElementById("modeChanges");
-        if (modeChanges.children.length >= 3) {
-          alert("Maximum of 3 mode changes allowed");
-          return;
-        }
-        const newModeChange = document.createElement("div");
-        newModeChange.className = "mode-change";
-        newModeChange.innerHTML = `
+            // Add mode change button functionality
+            document
+                .getElementById('addModeChange')
+                .addEventListener('click', () => {
+                    const modeChanges = document.getElementById('modeChanges');
+                    if (modeChanges.children.length >= 3) {
+                        alert('Maximum of 3 mode changes allowed');
+                        return;
+                    }
+                    const newModeChange = document.createElement('div');
+                    newModeChange.className = 'mode-change';
+                    newModeChange.innerHTML = `
           <div class="form-group">
             <label>Date and Time</label>
             <input type="datetime-local" class="mode-time" required />
@@ -1035,69 +1132,74 @@
           </div>
           <button type="button" class="remove-mode-change btn-secondary">Remove</button>
         `;
-        modeChanges.appendChild(newModeChange);
+                    modeChanges.appendChild(newModeChange);
 
-        // Add remove button functionality
-        newModeChange
-          .querySelector(".remove-mode-change")
-          .addEventListener("click", () => {
-            modeChanges.removeChild(newModeChange);
-          });
-      });
+                    // Add remove button functionality
+                    newModeChange
+                        .querySelector('.remove-mode-change')
+                        .addEventListener('click', () => {
+                            modeChanges.removeChild(newModeChange);
+                        });
+                });
 
-      // Add remove button functionality to initial mode change
-      const initialRemoveButton = document.createElement("button");
-      initialRemoveButton.type = "button";
-      initialRemoveButton.className = "remove-mode-change btn-secondary";
-      initialRemoveButton.textContent = "Remove";
-      initialRemoveButton.addEventListener("click", () => {
-        const modeChanges = document.getElementById("modeChanges");
-        if (modeChanges.children.length > 1) {
-          modeChanges.removeChild(modeChanges.firstElementChild);
-        } else {
-          alert("At least one mode change is required");
-        }
-      });
-      document.querySelector(".mode-change").appendChild(initialRemoveButton);
-
-      // Handle form submission
-      document
-        .getElementById("visitForm")
-        .addEventListener("submit", async (e) => {
-          e.preventDefault();
-          const name = document.getElementById("visitName").value;
-          const phone = document.getElementById("visitPhone").value || null;
-
-          const modeChanges = Array.from(
-            document.querySelectorAll(".mode-change")
-          ).map((change) => ({
-            time: change.querySelector(".mode-time").value,
-            mode: change.querySelector(".mode-select").value,
-          }));
-
-          // Sort mode changes by time
-          modeChanges.sort((a, b) => new Date(a.time) - new Date(b.time));
-
-          try {
-            const response = await fetch("/api/visits", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                name,
-                phone,
-                modeChanges,
-              }),
+            // Add remove button functionality to initial mode change
+            const initialRemoveButton = document.createElement('button');
+            initialRemoveButton.type = 'button';
+            initialRemoveButton.className = 'remove-mode-change btn-secondary';
+            initialRemoveButton.textContent = 'Remove';
+            initialRemoveButton.addEventListener('click', () => {
+                const modeChanges = document.getElementById('modeChanges');
+                if (modeChanges.children.length > 1) {
+                    modeChanges.removeChild(modeChanges.firstElementChild);
+                } else {
+                    alert('At least one mode change is required');
+                }
             });
+            document
+                .querySelector('.mode-change')
+                .appendChild(initialRemoveButton);
 
-            if (!response.ok) {
-              throw new Error("Failed to schedule visit");
-            }
+            // Handle form submission
+            document
+                .getElementById('visitForm')
+                .addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const name = document.getElementById('visitName').value;
+                    const phone =
+                        document.getElementById('visitPhone').value || null;
 
-            // Clear form
-            document.getElementById("visitForm").reset();
-            document.getElementById("modeChanges").innerHTML = `
+                    const modeChanges = Array.from(
+                        document.querySelectorAll('.mode-change')
+                    ).map((change) => ({
+                        time: change.querySelector('.mode-time').value,
+                        mode: change.querySelector('.mode-select').value,
+                    }));
+
+                    // Sort mode changes by time
+                    modeChanges.sort(
+                        (a, b) => new Date(a.time) - new Date(b.time)
+                    );
+
+                    try {
+                        const response = await fetch('/api/visits', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                name,
+                                phone,
+                                modeChanges,
+                            }),
+                        });
+
+                        if (!response.ok) {
+                            throw new Error('Failed to schedule visit');
+                        }
+
+                        // Clear form
+                        document.getElementById('visitForm').reset();
+                        document.getElementById('modeChanges').innerHTML = `
             <div class="mode-change">
               <div class="form-group">
                 <label>Date and Time</label>
@@ -1113,272 +1215,291 @@
               </div>
             </div>
           `;
-            // Add remove button to the new initial mode change
-            const newInitialRemoveButton = document.createElement("button");
-            newInitialRemoveButton.type = "button";
-            newInitialRemoveButton.className =
-              "remove-mode-change btn-secondary";
-            newInitialRemoveButton.textContent = "Remove";
-            newInitialRemoveButton.addEventListener("click", () => {
-              const modeChanges = document.getElementById("modeChanges");
-              if (modeChanges.children.length > 1) {
-                modeChanges.removeChild(modeChanges.firstElementChild);
-              } else {
-                alert("At least one mode change is required");
-              }
-            });
+                        // Add remove button to the new initial mode change
+                        const newInitialRemoveButton =
+                            document.createElement('button');
+                        newInitialRemoveButton.type = 'button';
+                        newInitialRemoveButton.className =
+                            'remove-mode-change btn-secondary';
+                        newInitialRemoveButton.textContent = 'Remove';
+                        newInitialRemoveButton.addEventListener('click', () => {
+                            const modeChanges =
+                                document.getElementById('modeChanges');
+                            if (modeChanges.children.length > 1) {
+                                modeChanges.removeChild(
+                                    modeChanges.firstElementChild
+                                );
+                            } else {
+                                alert('At least one mode change is required');
+                            }
+                        });
+                        document
+                            .querySelector('.mode-change')
+                            .appendChild(newInitialRemoveButton);
+
+                        // Refresh the visits list
+                        await loadVisits();
+                    } catch (error) {
+                        console.error('Error scheduling visit:', error);
+                        alert('Failed to schedule visit');
+                    }
+                });
+
+            // Add config management functions
+            async function loadConfig() {
+                try {
+                    const response = await fetch('/api/config');
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(
+                            errorData.details || 'Failed to load configuration'
+                        );
+                    }
+                    const config = await response.json();
+                    console.log('Loaded config:', config);
+
+                    // Convert times to 24-hour format for time inputs
+                    if (config.arrivalScheduleTime) {
+                        document.getElementById('arrivalScheduleTime').value =
+                            convertTo24Hour(config.arrivalScheduleTime);
+                    }
+                    if (config.departureScheduleTime) {
+                        document.getElementById('departureScheduleTime').value =
+                            convertTo24Hour(config.departureScheduleTime);
+                    }
+                    if (config.arrivingSoonTime) {
+                        document.getElementById('arrivingSoonTime').value =
+                            convertTo24Hour(config.arrivingSoonTime);
+                    }
+
+                    // Set other fields
+                    if (config.arrivingSoonDayOffset !== undefined) {
+                        document.getElementById('arrivingSoonDayOffset').value =
+                            config.arrivingSoonDayOffset;
+                    }
+                    if (config.checkin_mode) {
+                        document.getElementById('checkin_mode').value =
+                            config.checkin_mode;
+                    }
+                    if (config.checkout_mode) {
+                        document.getElementById('checkout_mode').value =
+                            config.checkout_mode;
+                    }
+                    if (config.arriving_soon_mode) {
+                        document.getElementById('arriving_soon_mode').value =
+                            config.arriving_soon_mode;
+                    }
+                    if (config.hubitat_ip) {
+                        document.getElementById('hubitat_ip').value =
+                            config.hubitat_ip;
+                    }
+                    if (config.hubitat_maker_api_access_token) {
+                        document.getElementById(
+                            'hubitat_maker_api_access_token'
+                        ).value = config.hubitat_maker_api_access_token;
+                    }
+                    if (config.lock_code_slot) {
+                        document.getElementById('lock_code_slot').value =
+                            config.lock_code_slot;
+                    }
+                    if (config.locks_to_code) {
+                        document.getElementById('locks_to_code').value =
+                            config.locks_to_code.join(', ');
+                    }
+                    if (config.pushover && config.pushover.user) {
+                        document.getElementById('pushover_user').value =
+                            config.pushover.user;
+                    }
+                    if (config.pushover && config.pushover.token) {
+                        document.getElementById('pushover_token').value =
+                            config.pushover.token;
+                    }
+                } catch (error) {
+                    console.log('Error loading config:', error);
+                    alert(`Failed to load configuration: ${error.message}`);
+                }
+            }
+
+            function convertTo24Hour(time12h) {
+                const [time, modifier] = time12h.split(' ');
+                let [hours, minutes] = time.split(':');
+                hours = parseInt(hours);
+                if (modifier === 'PM' && hours < 12) hours += 12;
+                if (modifier === 'AM' && hours === 12) hours = 0;
+                return `${hours.toString().padStart(2, '0')}:${minutes}`;
+            }
+
+            function convertTo12Hour(time24h) {
+                const [hours, minutes] = time24h.split(':');
+                const hour = parseInt(hours);
+                const modifier = hour >= 12 ? 'PM' : 'AM';
+                const hour12 = hour % 12 || 12;
+                return `${hour12}:${minutes} ${modifier}`;
+            }
+
+            // Handle config form submission
             document
-              .querySelector(".mode-change")
-              .appendChild(newInitialRemoveButton);
+                .getElementById('configForm')
+                .addEventListener('submit', async (e) => {
+                    e.preventDefault();
 
-            // Refresh the visits list
-            await loadVisits();
-          } catch (error) {
-            console.error("Error scheduling visit:", error);
-            alert("Failed to schedule visit");
-          }
-        });
+                    const config = {
+                        arrivalScheduleTime: convertTo12Hour(
+                            document.getElementById('arrivalScheduleTime').value
+                        ),
+                        departureScheduleTime: convertTo12Hour(
+                            document.getElementById('departureScheduleTime')
+                                .value
+                        ),
+                        arrivingSoonTime: convertTo12Hour(
+                            document.getElementById('arrivingSoonTime').value
+                        ),
+                        arrivingSoonDayOffset: parseInt(
+                            document.getElementById('arrivingSoonDayOffset')
+                                .value
+                        ),
+                        checkin_mode:
+                            document.getElementById('checkin_mode').value,
+                        checkout_mode:
+                            document.getElementById('checkout_mode').value,
+                        arriving_soon_mode:
+                            document.getElementById('arriving_soon_mode').value,
+                        hubitat_ip: document.getElementById('hubitat_ip').value,
+                        hubitat_maker_api_access_token: document.getElementById(
+                            'hubitat_maker_api_access_token'
+                        ).value,
+                        lock_code_slot:
+                            document.getElementById('lock_code_slot').value,
+                        locks_to_code: document
+                            .getElementById('locks_to_code')
+                            .value.split(',')
+                            .map((s) => s.trim()),
+                        pushover: {
+                            user: document.getElementById('pushover_user')
+                                .value,
+                            token: document.getElementById('pushover_token')
+                                .value,
+                        },
+                    };
 
-      // Add config management functions
-      async function loadConfig() {
-        try {
-          const response = await fetch("/api/config");
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(
-              errorData.details || "Failed to load configuration"
-            );
-          }
-          const config = await response.json();
-          console.log("Loaded config:", config);
+                    try {
+                        const response = await fetch('/api/config', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(config),
+                        });
 
-          // Convert times to 24-hour format for time inputs
-          if (config.arrivalScheduleTime) {
-            document.getElementById("arrivalScheduleTime").value =
-              convertTo24Hour(config.arrivalScheduleTime);
-          }
-          if (config.departureScheduleTime) {
-            document.getElementById("departureScheduleTime").value =
-              convertTo24Hour(config.departureScheduleTime);
-          }
-          if (config.arrivingSoonTime) {
-            document.getElementById("arrivingSoonTime").value = convertTo24Hour(
-              config.arrivingSoonTime
-            );
-          }
+                        if (response.ok) {
+                            alert('Configuration saved successfully');
+                            loadConfig(); // Reload to ensure we have the latest values
+                        } else {
+                            alert('Failed to save configuration');
+                        }
+                    } catch (error) {
+                        console.log('Error saving config:', error);
+                        alert('Failed to save configuration');
+                    }
+                });
 
-          // Set other fields
-          if (config.arrivingSoonDayOffset !== undefined) {
-            document.getElementById("arrivingSoonDayOffset").value =
-              config.arrivingSoonDayOffset;
-          }
-          if (config.checkin_mode) {
-            document.getElementById("checkin_mode").value = config.checkin_mode;
-          }
-          if (config.checkout_mode) {
-            document.getElementById("checkout_mode").value =
-              config.checkout_mode;
-          }
-          if (config.arriving_soon_mode) {
-            document.getElementById("arriving_soon_mode").value =
-              config.arriving_soon_mode;
-          }
-          if (config.hubitat_ip) {
-            document.getElementById("hubitat_ip").value = config.hubitat_ip;
-          }
-          if (config.hubitat_maker_api_access_token) {
-            document.getElementById("hubitat_maker_api_access_token").value =
-              config.hubitat_maker_api_access_token;
-          }
-          if (config.lock_code_slot) {
-            document.getElementById("lock_code_slot").value =
-              config.lock_code_slot;
-          }
-          if (config.locks_to_code) {
-            document.getElementById("locks_to_code").value =
-              config.locks_to_code.join(", ");
-          }
-          if (config.pushover && config.pushover.user) {
-            document.getElementById("pushover_user").value =
-              config.pushover.user;
-          }
-          if (config.pushover && config.pushover.token) {
-            document.getElementById("pushover_token").value =
-              config.pushover.token;
-          }
-        } catch (error) {
-          console.log("Error loading config:", error);
-          alert(`Failed to load configuration: ${error.message}`);
-        }
-      }
+            // Load config when the page loads
+            loadConfig();
 
-      function convertTo24Hour(time12h) {
-        const [time, modifier] = time12h.split(" ");
-        let [hours, minutes] = time.split(":");
-        hours = parseInt(hours);
-        if (modifier === "PM" && hours < 12) hours += 12;
-        if (modifier === "AM" && hours === 12) hours = 0;
-        return `${hours.toString().padStart(2, "0")}:${minutes}`;
-      }
+            // Initial load
+            refreshData();
 
-      function convertTo12Hour(time24h) {
-        const [hours, minutes] = time24h.split(":");
-        const hour = parseInt(hours);
-        const modifier = hour >= 12 ? "PM" : "AM";
-        const hour12 = hour % 12 || 12;
-        return `${hour12}:${minutes} ${modifier}`;
-      }
+            // Load and handle mode management
+            async function loadModes() {
+                try {
+                    const response = await fetch('/api/modes');
+                    if (!response.ok) {
+                        throw new Error('Failed to load modes');
+                    }
+                    const modes = await response.json();
 
-      // Handle config form submission
-      document
-        .getElementById("configForm")
-        .addEventListener("submit", async (e) => {
-          e.preventDefault();
+                    // Update current mode display
+                    const currentMode = modes.find((mode) => mode.active);
+                    document.getElementById('currentModeText').textContent =
+                        currentMode
+                            ? `Current Mode: ${currentMode.name}`
+                            : 'No active mode';
 
-          const config = {
-            arrivalScheduleTime: convertTo12Hour(
-              document.getElementById("arrivalScheduleTime").value
-            ),
-            departureScheduleTime: convertTo12Hour(
-              document.getElementById("departureScheduleTime").value
-            ),
-            arrivingSoonTime: convertTo12Hour(
-              document.getElementById("arrivingSoonTime").value
-            ),
-            arrivingSoonDayOffset: parseInt(
-              document.getElementById("arrivingSoonDayOffset").value
-            ),
-            checkin_mode: document.getElementById("checkin_mode").value,
-            checkout_mode: document.getElementById("checkout_mode").value,
-            arriving_soon_mode:
-              document.getElementById("arriving_soon_mode").value,
-            hubitat_ip: document.getElementById("hubitat_ip").value,
-            hubitat_maker_api_access_token: document.getElementById(
-              "hubitat_maker_api_access_token"
-            ).value,
-            lock_code_slot: document.getElementById("lock_code_slot").value,
-            locks_to_code: document
-              .getElementById("locks_to_code")
-              .value.split(",")
-              .map((s) => s.trim()),
-            pushover: {
-              user: document.getElementById("pushover_user").value,
-              token: document.getElementById("pushover_token").value,
-            },
-          };
+                    // Update mode select dropdown
+                    const modeSelect = document.getElementById('modeSelect');
+                    modeSelect.innerHTML = modes
+                        .map(
+                            (mode) =>
+                                `<option value="${mode.id}" ${
+                                    mode.active ? 'selected' : ''
+                                }>${mode.name}</option>`
+                        )
+                        .join('');
 
-          try {
-            const response = await fetch("/api/config", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify(config),
-            });
-
-            if (response.ok) {
-              alert("Configuration saved successfully");
-              loadConfig(); // Reload to ensure we have the latest values
-            } else {
-              alert("Failed to save configuration");
-            }
-          } catch (error) {
-            console.log("Error saving config:", error);
-            alert("Failed to save configuration");
-          }
-        });
-
-      // Load config when the page loads
-      loadConfig();
-
-      // Initial load
-      refreshData();
-
-      // Load and handle mode management
-      async function loadModes() {
-        try {
-          const response = await fetch("/api/modes");
-          if (!response.ok) {
-            throw new Error("Failed to load modes");
-          }
-          const modes = await response.json();
-
-          // Update current mode display
-          const currentMode = modes.find((mode) => mode.active);
-          document.getElementById("currentModeText").textContent = currentMode
-            ? `Current Mode: ${currentMode.name}`
-            : "No active mode";
-
-          // Update mode select dropdown
-          const modeSelect = document.getElementById("modeSelect");
-          modeSelect.innerHTML = modes
-            .map(
-              (mode) =>
-                `<option value="${mode.id}" ${mode.active ? "selected" : ""}>${
-                  mode.name
-                }</option>`
-            )
-            .join("");
-
-          // Enable change mode button
-          document.getElementById("changeModeBtn").disabled = false;
-        } catch (error) {
-          console.error("Error loading modes:", error);
-          document.getElementById("currentModeText").textContent =
-            "Error loading mode";
-        }
-      }
-
-      // Handle mode popup
-      document
-        .getElementById("currentModeBtn")
-        .addEventListener("click", () => {
-          document.getElementById("modePopup").classList.toggle("active");
-        });
-
-      // Close popup when clicking outside
-      document.addEventListener("click", (e) => {
-        const modePopup = document.getElementById("modePopup");
-        const currentModeBtn = document.getElementById("currentModeBtn");
-        if (
-          !modePopup.contains(e.target) &&
-          !currentModeBtn.contains(e.target)
-        ) {
-          modePopup.classList.remove("active");
-        }
-      });
-
-      // Handle mode change
-      document
-        .getElementById("changeModeBtn")
-        .addEventListener("click", async () => {
-          const modeSelect = document.getElementById("modeSelect");
-          const modeId = modeSelect.value;
-
-          if (!modeId) return;
-
-          try {
-            const response = await fetch(`/api/modes/${modeId}`, {
-              method: "POST",
-            });
-
-            if (!response.ok) {
-              throw new Error("Failed to change mode");
+                    // Enable change mode button
+                    document.getElementById('changeModeBtn').disabled = false;
+                } catch (error) {
+                    console.error('Error loading modes:', error);
+                    document.getElementById('currentModeText').textContent =
+                        'Error loading mode';
+                }
             }
 
-            // Reload modes to update current mode display
-            await loadModes();
-            // Close the popup
-            document.getElementById("modePopup").classList.remove("active");
-            alert("Mode changed successfully");
-          } catch (error) {
-            console.error("Error changing mode:", error);
-            alert("Failed to change mode");
-          }
-        });
+            // Handle mode popup
+            document
+                .getElementById('currentModeBtn')
+                .addEventListener('click', () => {
+                    document
+                        .getElementById('modePopup')
+                        .classList.toggle('active');
+                });
 
-      // Load modes when page loads
-      loadModes();
-    </script>
-  </body>
+            // Close popup when clicking outside
+            document.addEventListener('click', (e) => {
+                const modePopup = document.getElementById('modePopup');
+                const currentModeBtn =
+                    document.getElementById('currentModeBtn');
+                if (
+                    !modePopup.contains(e.target) &&
+                    !currentModeBtn.contains(e.target)
+                ) {
+                    modePopup.classList.remove('active');
+                }
+            });
+
+            // Handle mode change
+            document
+                .getElementById('changeModeBtn')
+                .addEventListener('click', async () => {
+                    const modeSelect = document.getElementById('modeSelect');
+                    const modeId = modeSelect.value;
+
+                    if (!modeId) return;
+
+                    try {
+                        const response = await fetch(`/api/modes/${modeId}`, {
+                            method: 'POST',
+                        });
+
+                        if (!response.ok) {
+                            throw new Error('Failed to change mode');
+                        }
+
+                        // Reload modes to update current mode display
+                        await loadModes();
+                        // Close the popup
+                        document
+                            .getElementById('modePopup')
+                            .classList.remove('active');
+                        alert('Mode changed successfully');
+                    } catch (error) {
+                        console.error('Error changing mode:', error);
+                        alert('Failed to change mode');
+                    }
+                });
+
+            // Load modes when page loads
+            loadModes();
+        </script>
+    </body>
 </html>
