@@ -446,6 +446,7 @@ const startSchedule = (sched) => {
       sched.arrivingSoonSchedule = schedule.scheduleJob(
         new Date(sched.arriving),
         ((context) => {
+          log.debug(`Executing arriving soon actions for reservation ${context.reservationNumber}`);
           runArrivingSoonActions(
             context.phoneNumber,
             context.reservationNumber
@@ -458,6 +459,8 @@ const startSchedule = (sched) => {
     } else {
       log.debug(`Skipping scheduling arrivingSoon date - it's in the past`);
     }
+  } else {
+    log.debug(`No arriving soon date set for reservation ${sched.reservationNumber}`);
   }
 };
 
@@ -497,7 +500,9 @@ const getSchedules = async (firstRun) => {
 
     let arrivingSoonStart, arrivingSoonDate;
     if (config.get("arrivingSoonTime")) {
+      log.debug(`Processing arriving soon time for reservation ${reservationNumber}`);
       arrivingSoonStart = convertStrToDate(config.get("arrivingSoonTime"));
+      log.debug(`Converted arriving soon time: ${JSON.stringify(arrivingSoonStart)}`);
       if (config.get("arrivingSoonDayOffset")) {
         // Create the base date from the check-in date
         arrivingSoonDate = new Date(
@@ -512,6 +517,7 @@ const getSchedules = async (firstRun) => {
         arrivingSoonDate.setDate(
           arrivingSoonDate.getDate() + config.get("arrivingSoonDayOffset")
         );
+        log.debug(`Calculated arriving soon date: ${formatDate(arrivingSoonDate)}`);
       }
     }
 
