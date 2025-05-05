@@ -1111,6 +1111,10 @@ const server = app.listen(PORT, "0.0.0.0", () => {
   log.debug(`- Network: http://0.0.0.0:${PORT}`);
   log.debug(`- Timezone: ${config.get("timezone")}`);
   log.debug(`- Environment: ${process.env.NODE_ENV || "production"}`);
+  log.debug(`- Config file: config/${process.env.NODE_ENV || "default"}.json`);
+  log.debug(`- Arriving Soon Time: ${config.get("arrivingSoonTime")}`);
+  log.debug(`- Arriving Soon Day Offset: ${config.get("arrivingSoonDayOffset")}`);
+  log.debug(`- Arriving Soon Mode: ${config.get("arriving_soon_mode")}`);
   initFileWatcher();
 });
 

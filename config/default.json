@@ -11,6 +11,9 @@
     ],
     "checkin_mode": "home",
     "checkout_mode": "away",
+    "arrivingSoonTime": "1:00 AM",
+    "arrivingSoonDayOffset": 0,
+    "arriving_soon_mode": "ArrivingSoon",
     "cron_schedule": "0 * * * *",
     "pushover": {
         "user": "pusnover.net user key",
