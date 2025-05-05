@@ -922,7 +922,18 @@ app.get("/api/timezone", (req, res) => {
 
 // Get current schedules
 app.get("/api/schedules", (req, res) => {
-  res.json(schedules);
+  // Create a clean version of schedules without Job objects
+  const cleanSchedules = {};
+  for (const key in schedules) {
+    cleanSchedules[key] = {
+      start: schedules[key].start,
+      end: schedules[key].end,
+      phoneNumber: schedules[key].phoneNumber,
+      reservationNumber: schedules[key].reservationNumber,
+      arriving: schedules[key].arriving
+    };
+  }
+  res.json(cleanSchedules);
 });
 
 // Get current active code
