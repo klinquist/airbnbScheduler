@@ -481,193 +481,6 @@ const startSchedule = (sched) => {
   }
 };
 
-const getSchedules = async (firstRun) => {
-  log.debug("Refreshing schedules");
-
-  const events = await getiCalEvents().catch((err) => {
-    throw new Error(err);
-  });
-
-  if (!events) {
-    return log.error("No events found");
-  }
-
-  const currentSchedules = [];
-  for (let i = 0; i < events.length; i++) {
-    const timeStart = convertStrToDate(config.get("arrivalScheduleTime"));
-    const timeEnd = convertStrToDate(config.get("departureScheduleTime"));
-    const dateStart = new Date(
-      events[i].start.getUTCFullYear(),
-      events[i].start.getMonth(),
-      events[i].start.getDate(),
-      timeStart.hr,
-      timeStart.min,
-      timeStart.sec
-    );
-    const dateEnd = new Date(
-      events[i].end.getUTCFullYear(),
-      events[i].end.getMonth(),
-      events[i].end.getDate(),
-      timeEnd.hr,
-      timeEnd.min,
-      timeEnd.sec
-    );
-    const reservationNumber = events[i].description.match(/([A-Z0-9]{9,})/g)[0];
-    const phoneNumber = events[i].description.match(/\s([0-9]{4})/)[1];
-
-    let arrivingSoonStart, arrivingSoonDate;
-    if (config.get("arrivingSoonTime")) {
-      log.debug(
-        `Processing arriving soon time for reservation ${reservationNumber}`
-      );
-      arrivingSoonStart = convertStrToDate(config.get("arrivingSoonTime"));
-
-      // Create the base date from the check-in date
-      arrivingSoonDate = new Date(
-        events[i].start.getUTCFullYear(),
-        events[i].start.getMonth(),
-        events[i].start.getDate(),
-        arrivingSoonStart.hr,
-        arrivingSoonStart.min,
-        arrivingSoonStart.sec
-      );
-
-      // Apply the day offset (default to 0 if not set)
-      const dayOffset = config.has("arrivingSoonDayOffset")
-        ? config.get("arrivingSoonDayOffset")
-        : 0;
-      arrivingSoonDate.setDate(arrivingSoonDate.getDate() + dayOffset);
-      log.debug(
-        `Calculated arriving soon date: ${formatDate(arrivingSoonDate)}`
-      );
-    }
-
-    // Skip if the reservation is in the past
-    if (dateInPast(dateEnd)) {
-      log.debug(
-        `Skipping past reservation ${reservationNumber} (ended ${formatDate(
-          dateEnd
-        )})`
-      );
-      continue;
-    }
-
-    if (!schedules[reservationNumber]) {
-      let logMessage = `New reservation ${reservationNumber} scheduled for ${formatDate(
-        dateStart
-      )} to ${formatDate(dateEnd)}`;
-
-      log.debug(logMessage);
-      let sched = {
-        start: dateStart.toISOString(),
-        end: dateEnd.toISOString(),
-        phoneNumber,
-        reservationNumber: reservationNumber,
-      };
-      if (arrivingSoonDate) {
-        sched.arriving = arrivingSoonDate.toISOString();
-      }
-      schedules[reservationNumber] = sched;
-      startSchedule(schedules[reservationNumber]);
-    }
-
-    if (
-      schedules[reservationNumber].start !== dateStart.toISOString() ||
-      schedules[reservationNumber].end !== dateEnd.toISOString()
-    ) {
-      log.info(`Reservation ${reservationNumber} schedule changed!`);
-      log.debug(
-        `Previous schedule: ${formatDate(
-          schedules[reservationNumber].start
-        )} to ${formatDate(schedules[reservationNumber].end)}`
-      );
-      log.debug(
-        `New schedule: ${formatDate(dateStart)} to ${formatDate(dateEnd)}`
-      );
-
-      if (schedules[reservationNumber].arrivingSoonSchedule)
-        schedules[reservationNumber].arrivingSoonSchedule.cancel();
-      if (schedules[reservationNumber].startSchedule)
-        schedules[reservationNumber].startSchedule.cancel();
-      if (schedules[reservationNumber].endSchedule)
-        schedules[reservationNumber].endSchedule.cancel();
-      schedules[reservationNumber] = {
-        start: dateStart.toISOString(),
-        end: dateEnd.toISOString(),
-        phoneNumber,
-        reservationNumber: reservationNumber,
-      };
-      if (arrivingSoonDate) {
-        schedules[reservationNumber].arriving = arrivingSoonDate.toISOString();
-      }
-      startSchedule(schedules[reservationNumber]);
-    }
-
-    if (moment().isBetween(dateStart, dateEnd)) {
-      currentCode = [phoneNumber, reservationNumber];
-    }
-
-    currentSchedules.push(reservationNumber);
-  }
-
-  // Check for schedules that need to be removed!
-  for (const k in schedules) {
-    if (currentSchedules.indexOf(k) == -1) {
-      log.info(`Reservation ${k} has been deleted, removing the schedule!`);
-      // Cancel all scheduled jobs
-      if (schedules[k].arrivingSoonSchedule)
-        schedules[k].arrivingSoonSchedule.cancel();
-      if (schedules[k].startSchedule) schedules[k].startSchedule.cancel();
-      if (schedules[k].endSchedule) schedules[k].endSchedule.cancel();
-
-      // If the reservation is currently active (guest is staying)
-      if (
-        moment().isBetween(
-          new Date(schedules[k].start),
-          new Date(schedules[k].end)
-        )
-      ) {
-        if (
-          config.get(
-            "run_checkout_immediately_if_reservation_is_cancelled_mid_stay"
-          )
-        ) {
-          log.info(
-            `Reservation ${k} is currently active but has been canceled, removing lock code and running checkout actions`
-          );
-          runCheckOutActions(
-            schedules[k].phoneNumber,
-            schedules[k].reservationNumber
-          );
-          delete schedules[k];
-        } else {
-          log.info(
-            `Reservation ${k} is currently active but has been canceled, check out actions will run at normally scheduled time (${formatDate(
-              schedules[k].end
-            )})`
-          );
-        }
-      } else {
-        // If the reservation hasn't started yet, just delete it without running any actions
-        log.info(
-          `Reservation ${k} was cancelled before it started (was scheduled for ${formatDate(
-            schedules[k].start
-          )}), removing schedule without running any actions`
-        );
-        delete schedules[k];
-      }
-    }
-  }
-
-  if (currentCode.length == 0) {
-    log.debug("No active codes at this time");
-  } else {
-    log.debug(
-      `Active code ${currentCode[0]} is programmed for current guest (reservation ${currentCode[1]})`
-    );
-  }
-};
-
 const SCHEDULED_VISITS_FILE = "scheduled_visits.json";
 const scheduledVisitJobs = new Map(); // Store cron jobs for scheduled visits
 
@@ -927,6 +740,335 @@ const deleteScheduledVisit = async (id) => {
   }
 };
 
+// Add after the SCHEDULED_VISITS_FILE constant
+const LATE_CHECKOUTS_FILE = path.join(__dirname, "data", "late_checkouts.json");
+
+// Add after the readScheduledVisits function
+const readLateCheckouts = async () => {
+  try {
+    const filePath = path.join(__dirname, "data", "late_checkouts.json");
+    const data = await readFileAsync(filePath, "utf8");
+    return JSON.parse(data);
+  } catch (error) {
+    // If file doesn't exist or is invalid, return empty object
+    if (error.code === "ENOENT") {
+      return {};
+    }
+    log.error(`Error reading late checkouts: ${error}`);
+    return {};
+  }
+};
+
+const writeLateCheckouts = async (checkouts) => {
+  try {
+    const filePath = path.join(__dirname, "data", "late_checkouts.json");
+    await writeFileAsync(filePath, JSON.stringify(checkouts, null, 2));
+    log.debug("Successfully wrote late checkouts to file");
+  } catch (error) {
+    log.error(`Error writing late checkouts: ${error}`);
+    throw error;
+  }
+};
+
+// Modify the getSchedules function to apply late checkouts
+const getSchedules = async (firstRun) => {
+  log.debug("Refreshing schedules");
+
+  const events = await getiCalEvents().catch((err) => {
+    throw new Error(err);
+  });
+
+  if (!events) {
+    return log.error("No events found");
+  }
+
+  // Load late checkouts
+  const lateCheckouts = await readLateCheckouts();
+
+  const currentSchedules = [];
+  for (let i = 0; i < events.length; i++) {
+    const timeStart = convertStrToDate(config.get("arrivalScheduleTime"));
+    const timeEnd = convertStrToDate(config.get("departureScheduleTime"));
+    const dateStart = new Date(
+      events[i].start.getUTCFullYear(),
+      events[i].start.getMonth(),
+      events[i].start.getDate(),
+      timeStart.hr,
+      timeStart.min,
+      timeStart.sec
+    );
+    let dateEnd = new Date(
+      events[i].end.getUTCFullYear(),
+      events[i].end.getMonth(),
+      events[i].end.getDate(),
+      timeEnd.hr,
+      timeEnd.min,
+      timeEnd.sec
+    );
+    const reservationNumber = events[i].description.match(/([A-Z0-9]{9,})/g)[0];
+
+    // Apply late checkout if it exists
+    if (lateCheckouts[reservationNumber]) {
+      const lateCheckoutTime = new Date(lateCheckouts[reservationNumber]);
+      if (lateCheckoutTime > dateEnd) {
+        log.debug(
+          `Applying late checkout for reservation ${reservationNumber}: ${formatDate(
+            lateCheckoutTime
+          )}`
+        );
+        dateEnd = lateCheckoutTime;
+      } else {
+        // If the late checkout time is in the past or before original checkout, remove it
+        delete lateCheckouts[reservationNumber];
+        await writeLateCheckouts(lateCheckouts);
+      }
+    }
+
+    const phoneNumber = events[i].description.match(/\s([0-9]{4})/)[1];
+
+    let arrivingSoonStart, arrivingSoonDate;
+    if (config.get("arrivingSoonTime")) {
+      log.debug(
+        `Processing arriving soon time for reservation ${reservationNumber}`
+      );
+      arrivingSoonStart = convertStrToDate(config.get("arrivingSoonTime"));
+
+      // Create the base date from the check-in date
+      arrivingSoonDate = new Date(
+        events[i].start.getUTCFullYear(),
+        events[i].start.getMonth(),
+        events[i].start.getDate(),
+        arrivingSoonStart.hr,
+        arrivingSoonStart.min,
+        arrivingSoonStart.sec
+      );
+
+      // Apply the day offset (default to 0 if not set)
+      const dayOffset = config.has("arrivingSoonDayOffset")
+        ? config.get("arrivingSoonDayOffset")
+        : 0;
+      arrivingSoonDate.setDate(arrivingSoonDate.getDate() + dayOffset);
+      log.debug(
+        `Calculated arriving soon date: ${formatDate(arrivingSoonDate)}`
+      );
+    }
+
+    // Skip if the reservation is in the past
+    if (dateInPast(dateEnd)) {
+      log.debug(
+        `Skipping past reservation ${reservationNumber} (ended ${formatDate(
+          dateEnd
+        )})`
+      );
+      continue;
+    }
+
+    if (!schedules[reservationNumber]) {
+      let logMessage = `New reservation ${reservationNumber} scheduled for ${formatDate(
+        dateStart
+      )} to ${formatDate(dateEnd)}`;
+
+      log.debug(logMessage);
+      let sched = {
+        start: dateStart.toISOString(),
+        end: dateEnd.toISOString(),
+        phoneNumber,
+        reservationNumber: reservationNumber,
+      };
+      if (arrivingSoonDate) {
+        sched.arriving = arrivingSoonDate.toISOString();
+      }
+      schedules[reservationNumber] = sched;
+      startSchedule(schedules[reservationNumber]);
+    }
+
+    if (
+      schedules[reservationNumber].start !== dateStart.toISOString() ||
+      schedules[reservationNumber].end !== dateEnd.toISOString()
+    ) {
+      log.info(`Reservation ${reservationNumber} schedule changed!`);
+      log.debug(
+        `Previous schedule: ${formatDate(
+          schedules[reservationNumber].start
+        )} to ${formatDate(schedules[reservationNumber].end)}`
+      );
+      log.debug(
+        `New schedule: ${formatDate(dateStart)} to ${formatDate(dateEnd)}`
+      );
+
+      if (schedules[reservationNumber].arrivingSoonSchedule)
+        schedules[reservationNumber].arrivingSoonSchedule.cancel();
+      if (schedules[reservationNumber].startSchedule)
+        schedules[reservationNumber].startSchedule.cancel();
+      if (schedules[reservationNumber].endSchedule)
+        schedules[reservationNumber].endSchedule.cancel();
+      schedules[reservationNumber] = {
+        start: dateStart.toISOString(),
+        end: dateEnd.toISOString(),
+        phoneNumber,
+        reservationNumber: reservationNumber,
+      };
+      if (arrivingSoonDate) {
+        schedules[reservationNumber].arriving = arrivingSoonDate.toISOString();
+      }
+      startSchedule(schedules[reservationNumber]);
+    }
+
+    if (moment().isBetween(dateStart, dateEnd)) {
+      currentCode = [phoneNumber, reservationNumber];
+    }
+
+    currentSchedules.push(reservationNumber);
+  }
+
+  // Check for schedules that need to be removed!
+  for (const k in schedules) {
+    if (currentSchedules.indexOf(k) == -1) {
+      log.info(`Reservation ${k} has been deleted, removing the schedule!`);
+      // Cancel all scheduled jobs
+      if (schedules[k].arrivingSoonSchedule)
+        schedules[k].arrivingSoonSchedule.cancel();
+      if (schedules[k].startSchedule) schedules[k].startSchedule.cancel();
+      if (schedules[k].endSchedule) schedules[k].endSchedule.cancel();
+
+      // If the reservation is currently active (guest is staying)
+      if (
+        moment().isBetween(
+          new Date(schedules[k].start),
+          new Date(schedules[k].end)
+        )
+      ) {
+        if (
+          config.get(
+            "run_checkout_immediately_if_reservation_is_cancelled_mid_stay"
+          )
+        ) {
+          log.info(
+            `Reservation ${k} is currently active but has been canceled, removing lock code and running checkout actions`
+          );
+          runCheckOutActions(
+            schedules[k].phoneNumber,
+            schedules[k].reservationNumber
+          );
+          delete schedules[k];
+        } else {
+          log.info(
+            `Reservation ${k} is currently active but has been canceled, check out actions will run at normally scheduled time (${formatDate(
+              schedules[k].end
+            )})`
+          );
+        }
+      } else {
+        // If the reservation hasn't started yet, just delete it without running any actions
+        log.info(
+          `Reservation ${k} was cancelled before it started (was scheduled for ${formatDate(
+            schedules[k].start
+          )}), removing schedule without running any actions`
+        );
+        delete schedules[k];
+      }
+    }
+  }
+
+  if (currentCode.length == 0) {
+    log.debug("No active codes at this time");
+  } else {
+    log.debug(
+      `Active code ${currentCode[0]} is programmed for current guest (reservation ${currentCode[1]})`
+    );
+  }
+};
+
+// Modify the late checkout endpoint to persist changes
+app.post(
+  "/api/schedules/:reservationNumber/late-checkout",
+  async (req, res) => {
+    try {
+      const { reservationNumber } = req.params;
+      const { newCheckoutTime } = req.body;
+
+      if (!newCheckoutTime) {
+        return res
+          .status(400)
+          .json({ error: "New check-out time is required" });
+      }
+
+      // Validate the reservation exists
+      if (!schedules[reservationNumber]) {
+        return res.status(404).json({ error: "Reservation not found" });
+      }
+
+      // Validate the new check-out time is in the future
+      const newTime = new Date(newCheckoutTime);
+      if (newTime <= new Date()) {
+        return res
+          .status(400)
+          .json({ error: "New check-out time must be in the future" });
+      }
+
+      // Validate the new check-out time is after the check-in time
+      const checkInTime = new Date(schedules[reservationNumber].start);
+      if (newTime <= checkInTime) {
+        return res
+          .status(400)
+          .json({ error: "New check-out time must be after check-in time" });
+      }
+
+      log.info(
+        `Updating check-out time for reservation ${reservationNumber} to ${formatDate(
+          newTime
+        )}`
+      );
+
+      // Load current late checkouts
+      const lateCheckouts = await readLateCheckouts();
+
+      // Update late checkouts
+      lateCheckouts[reservationNumber] = newTime.toISOString();
+      await writeLateCheckouts(lateCheckouts);
+
+      // Cancel existing check-out schedule
+      if (schedules[reservationNumber].endSchedule) {
+        schedules[reservationNumber].endSchedule.cancel();
+      }
+
+      // Update the schedule
+      schedules[reservationNumber].end = newTime.toISOString();
+
+      // Create new check-out schedule
+      schedules[reservationNumber].endSchedule = schedule.scheduleJob(
+        newTime,
+        ((context) => {
+          runCheckOutActions(context.phoneNumber, context.reservationNumber);
+        }).bind(null, {
+          phoneNumber: schedules[reservationNumber].phoneNumber,
+          reservationNumber: reservationNumber,
+        })
+      );
+
+      // Send notification
+      if (pushover) {
+        await sendPushoverNotification(
+          `Late check-out scheduled for reservation ${reservationNumber} to ${formatDate(
+            newTime
+          )}`
+        );
+      }
+
+      res.json({
+        message: "Check-out time updated successfully",
+        newCheckoutTime: newTime.toISOString(),
+      });
+    } catch (error) {
+      log.error(`Error updating check-out time: ${error}`);
+      res.status(500).json({
+        error: "Failed to update check-out time",
+        details: error.message,
+      });
+    }
+  }
+);
+
 // Initialize Express app
 const app = express();
 app.use(express.json());
@@ -1037,7 +1179,7 @@ app.post("/api/visits", async (req, res) => {
 // Delete a scheduled visit
 app.delete("/api/visits/:id", async (req, res) => {
   try {
-    log.debug(`Deleting scheduled visit with ID: ${req.params.id}`);
+    log.debug(`Deleting scheduled visit ${req.params.id}`);
     await deleteScheduledVisit(req.params.id);
     log.debug("Successfully deleted visit");
     res.json({ success: true });
@@ -1133,89 +1275,6 @@ app.post("/api/config", async (req, res) => {
     });
   }
 });
-
-// Add late check-out endpoint
-app.post(
-  "/api/schedules/:reservationNumber/late-checkout",
-  async (req, res) => {
-    try {
-      const { reservationNumber } = req.params;
-      const { newCheckoutTime } = req.body;
-
-      if (!newCheckoutTime) {
-        return res
-          .status(400)
-          .json({ error: "New check-out time is required" });
-      }
-
-      // Validate the reservation exists
-      if (!schedules[reservationNumber]) {
-        return res.status(404).json({ error: "Reservation not found" });
-      }
-
-      // Validate the new check-out time is in the future
-      const newTime = new Date(newCheckoutTime);
-      if (newTime <= new Date()) {
-        return res
-          .status(400)
-          .json({ error: "New check-out time must be in the future" });
-      }
-
-      // Validate the new check-out time is after the check-in time
-      const checkInTime = new Date(schedules[reservationNumber].start);
-      if (newTime <= checkInTime) {
-        return res
-          .status(400)
-          .json({ error: "New check-out time must be after check-in time" });
-      }
-
-      log.info(
-        `Updating check-out time for reservation ${reservationNumber} to ${formatDate(
-          newTime
-        )}`
-      );
-
-      // Cancel existing check-out schedule
-      if (schedules[reservationNumber].endSchedule) {
-        schedules[reservationNumber].endSchedule.cancel();
-      }
-
-      // Update the schedule
-      schedules[reservationNumber].end = newTime.toISOString();
-
-      // Create new check-out schedule
-      schedules[reservationNumber].endSchedule = schedule.scheduleJob(
-        newTime,
-        ((context) => {
-          runCheckOutActions(context.phoneNumber, context.reservationNumber);
-        }).bind(null, {
-          phoneNumber: schedules[reservationNumber].phoneNumber,
-          reservationNumber: reservationNumber,
-        })
-      );
-
-      // Send notification
-      if (pushover) {
-        await sendPushoverNotification(
-          `Late check-out scheduled for reservation ${reservationNumber} to ${formatDate(
-            newTime
-          )}`
-        );
-      }
-
-      res.json({
-        message: "Check-out time updated successfully",
-        newCheckoutTime: newTime.toISOString(),
-      });
-    } catch (error) {
-      log.error(`Error updating check-out time: ${error}`);
-      res.status(500).json({
-        error: "Failed to update check-out time",
-        details: error.message,
-      });
-    }
-  }
-);
 
 // Start server
 const PORT = config.get("port") || 3000;
