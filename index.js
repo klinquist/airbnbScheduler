@@ -979,96 +979,6 @@ const getSchedules = async (firstRun) => {
   }
 };
 
-// Modify the late checkout endpoint to persist changes
-app.post(
-  "/api/schedules/:reservationNumber/late-checkout",
-  async (req, res) => {
-    try {
-      const { reservationNumber } = req.params;
-      const { newCheckoutTime } = req.body;
-
-      if (!newCheckoutTime) {
-        return res
-          .status(400)
-          .json({ error: "New check-out time is required" });
-      }
-
-      // Validate the reservation exists
-      if (!schedules[reservationNumber]) {
-        return res.status(404).json({ error: "Reservation not found" });
-      }
-
-      // Validate the new check-out time is in the future
-      const newTime = new Date(newCheckoutTime);
-      if (newTime <= new Date()) {
-        return res
-          .status(400)
-          .json({ error: "New check-out time must be in the future" });
-      }
-
-      // Validate the new check-out time is after the check-in time
-      const checkInTime = new Date(schedules[reservationNumber].start);
-      if (newTime <= checkInTime) {
-        return res
-          .status(400)
-          .json({ error: "New check-out time must be after check-in time" });
-      }
-
-      log.info(
-        `Updating check-out time for reservation ${reservationNumber} to ${formatDate(
-          newTime
-        )}`
-      );
-
-      // Load current late checkouts
-      const lateCheckouts = await readLateCheckouts();
-
-      // Update late checkouts
-      lateCheckouts[reservationNumber] = newTime.toISOString();
-      await writeLateCheckouts(lateCheckouts);
-
-      // Cancel existing check-out schedule
-      if (schedules[reservationNumber].endSchedule) {
-        schedules[reservationNumber].endSchedule.cancel();
-      }
-
-      // Update the schedule
-      schedules[reservationNumber].end = newTime.toISOString();
-
-      // Create new check-out schedule
-      schedules[reservationNumber].endSchedule = schedule.scheduleJob(
-        newTime,
-        ((context) => {
-          runCheckOutActions(context.phoneNumber, context.reservationNumber);
-        }).bind(null, {
-          phoneNumber: schedules[reservationNumber].phoneNumber,
-          reservationNumber: reservationNumber,
-        })
-      );
-
-      // Send notification
-      if (pushover) {
-        await sendPushoverNotification(
-          `Late check-out scheduled for reservation ${reservationNumber} to ${formatDate(
-            newTime
-          )}`
-        );
-      }
-
-      res.json({
-        message: "Check-out time updated successfully",
-        newCheckoutTime: newTime.toISOString(),
-      });
-    } catch (error) {
-      log.error(`Error updating check-out time: ${error}`);
-      res.status(500).json({
-        error: "Failed to update check-out time",
-        details: error.message,
-      });
-    }
-  }
-);
-
 // Initialize Express app
 const app = express();
 app.use(express.json());
@@ -1275,6 +1185,96 @@ app.post("/api/config", async (req, res) => {
     });
   }
 });
+
+// Add late check-out endpoint here, after app initialization but before server start
+app.post(
+  "/api/schedules/:reservationNumber/late-checkout",
+  async (req, res) => {
+    try {
+      const { reservationNumber } = req.params;
+      const { newCheckoutTime } = req.body;
+
+      if (!newCheckoutTime) {
+        return res
+          .status(400)
+          .json({ error: "New check-out time is required" });
+      }
+
+      // Validate the reservation exists
+      if (!schedules[reservationNumber]) {
+        return res.status(404).json({ error: "Reservation not found" });
+      }
+
+      // Validate the new check-out time is in the future
+      const newTime = new Date(newCheckoutTime);
+      if (newTime <= new Date()) {
+        return res
+          .status(400)
+          .json({ error: "New check-out time must be in the future" });
+      }
+
+      // Validate the new check-out time is after the check-in time
+      const checkInTime = new Date(schedules[reservationNumber].start);
+      if (newTime <= checkInTime) {
+        return res
+          .status(400)
+          .json({ error: "New check-out time must be after check-in time" });
+      }
+
+      log.info(
+        `Updating check-out time for reservation ${reservationNumber} to ${formatDate(
+          newTime
+        )}`
+      );
+
+      // Load current late checkouts
+      const lateCheckouts = await readLateCheckouts();
+
+      // Update late checkouts
+      lateCheckouts[reservationNumber] = newTime.toISOString();
+      await writeLateCheckouts(lateCheckouts);
+
+      // Cancel existing check-out schedule
+      if (schedules[reservationNumber].endSchedule) {
+        schedules[reservationNumber].endSchedule.cancel();
+      }
+
+      // Update the schedule
+      schedules[reservationNumber].end = newTime.toISOString();
+
+      // Create new check-out schedule
+      schedules[reservationNumber].endSchedule = schedule.scheduleJob(
+        newTime,
+        ((context) => {
+          runCheckOutActions(context.phoneNumber, context.reservationNumber);
+        }).bind(null, {
+          phoneNumber: schedules[reservationNumber].phoneNumber,
+          reservationNumber: reservationNumber,
+        })
+      );
+
+      // Send notification
+      if (pushover) {
+        await sendPushoverNotification(
+          `Late check-out scheduled for reservation ${reservationNumber} to ${formatDate(
+            newTime
+          )}`
+        );
+      }
+
+      res.json({
+        message: "Check-out time updated successfully",
+        newCheckoutTime: newTime.toISOString(),
+      });
+    } catch (error) {
+      log.error(`Error updating check-out time: ${error}`);
+      res.status(500).json({
+        error: "Failed to update check-out time",
+        details: error.message,
+      });
+    }
+  }
+);
 
 // Start server
 const PORT = config.get("port") || 3000;
