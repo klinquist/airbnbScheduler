@@ -135,49 +135,53 @@ const recentModeChanges = new Map();
 const MODE_CHANGE_COOLDOWN = 60000; // 1 minute cooldown between identical mode changes
 
 // Consolidated function for mode changes
-const handleModeChange = async (modeName, reason = '') => {
-    const now = Date.now();
-    const key = `${modeName}-${reason}`;
-    
-    // Check if this exact mode change was made recently
-    const lastChange = recentModeChanges.get(key);
-    if (lastChange && (now - lastChange) < MODE_CHANGE_COOLDOWN) {
-        log.debug(`Skipping duplicate mode change to ${modeName} (${reason}) - too soon after last change`);
-        return;
+const handleModeChange = async (modeName, reason = "") => {
+  const now = Date.now();
+  const key = `${modeName}-${reason}`;
+
+  // Check if this exact mode change was made recently
+  const lastChange = recentModeChanges.get(key);
+  if (lastChange && now - lastChange < MODE_CHANGE_COOLDOWN) {
+    log.debug(
+      `Skipping duplicate mode change to ${modeName} (${reason}) - too soon after last change`
+    );
+    return;
+  }
+
+  try {
+    const modes = await axios.get(getHubitatUrl("modes"));
+    const mode = modes.data.find(
+      (n) => n.name.toUpperCase() == modeName.toUpperCase()
+    );
+
+    if (!mode) {
+      log.error(`Could not find mode ${modeName}`);
+      return;
     }
 
-    try {
-        const modes = await axios.get(getHubitatUrl("modes"));
-        const mode = modes.data.find(
-            (n) => n.name.toUpperCase() == modeName.toUpperCase()
-        );
-
-        if (!mode) {
-            log.error(`Could not find mode ${modeName}`);
-            return;
-        }
-
-        if (mode.active) {
-            log.debug(`Mode ${modeName} is already active.`);
-            return;
-        }
-
-        await axios.get(getHubitatUrl(`modes/${mode.id}`));
-        log.info(`Successfully set mode to ${modeName} ${reason ? `(${reason})` : ''}`);
-        
-        // Record this mode change
-        recentModeChanges.set(key, now);
-        
-        // Clean up old entries from recentModeChanges
-        for (const [changeKey, timestamp] of recentModeChanges.entries()) {
-            if (now - timestamp > MODE_CHANGE_COOLDOWN) {
-                recentModeChanges.delete(changeKey);
-            }
-        }
-    } catch (error) {
-        log.error(`Error setting mode to ${modeName}: ${error}`);
-        throw error;
+    if (mode.active) {
+      log.debug(`Mode ${modeName} is already active.`);
+      return;
     }
+
+    await axios.get(getHubitatUrl(`modes/${mode.id}`));
+    log.info(
+      `Successfully set mode to ${modeName} ${reason ? `(${reason})` : ""}`
+    );
+
+    // Record this mode change
+    recentModeChanges.set(key, now);
+
+    // Clean up old entries from recentModeChanges
+    for (const [changeKey, timestamp] of recentModeChanges.entries()) {
+      if (now - timestamp > MODE_CHANGE_COOLDOWN) {
+        recentModeChanges.delete(changeKey);
+      }
+    }
+  } catch (error) {
+    log.error(`Error setting mode to ${modeName}: ${error}`);
+    throw error;
+  }
 };
 
 const setLockCode = async (phoneNumber, reservationNumber) => {
@@ -344,53 +348,62 @@ const getiCalEvents = async () => {
 
 // Update the runCheckInActions function
 const runCheckInActions = async (ph, reservationNumber) => {
-    log.info("Running check in actions");
-    try {
-        await setLockCode(ph, reservationNumber);
-    } catch (err) {
-        log.error(`Error setting lock code: ${err}`);
-    }
+  log.info("Running check in actions");
+  try {
+    await setLockCode(ph, reservationNumber);
+  } catch (err) {
+    log.error(`Error setting lock code: ${err}`);
+  }
 
-    let mode = config.get("checkin_mode");
-    if (mode) {
-        try {
-            await handleModeChange(mode, `Check-in for reservation ${reservationNumber}`);
-        } catch (err) {
-            log.error(`Error setting mode: ${err}`);
-        }
+  let mode = config.get("checkin_mode");
+  if (mode) {
+    try {
+      await handleModeChange(
+        mode,
+        `Check-in for reservation ${reservationNumber}`
+      );
+    } catch (err) {
+      log.error(`Error setting mode: ${err}`);
     }
+  }
 };
 
 // Update the runCheckOutActions function
 const runCheckOutActions = async (ph, reservationNumber) => {
-    log.info("Running check out actions");
+  log.info("Running check out actions");
+  try {
+    await removeLockCode(ph);
+  } catch (err) {
+    log.error(`Error removing lock code: ${err}`);
+  }
+  let mode = config.get("checkout_mode");
+  if (mode) {
     try {
-        await removeLockCode(ph);
+      await handleModeChange(
+        mode,
+        `Check-out for reservation ${reservationNumber}`
+      );
     } catch (err) {
-        log.error(`Error removing lock code: ${err}`);
+      log.error(`Error setting mode: ${err}`);
     }
-    let mode = config.get("checkout_mode");
-    if (mode) {
-        try {
-            await handleModeChange(mode, `Check-out for reservation ${reservationNumber}`);
-        } catch (err) {
-            log.error(`Error setting mode: ${err}`);
-        }
-    }
+  }
 };
 
 // Update the runArrivingSoonActions function
 const runArrivingSoonActions = async (ph, reservationNumber) => {
-    let mode = config.get("arriving_soon_mode");
-    if (mode) {
-        try {
-            await handleModeChange(mode, `Arriving soon for reservation ${reservationNumber}`);
-        } catch (err) {
-            log.error(`Error setting mode: ${err}`);
-        }
-    } else {
-        log.error(`No arriving_soon_mode set in config`);
+  let mode = config.get("arriving_soon_mode");
+  if (mode) {
+    try {
+      await handleModeChange(
+        mode,
+        `Arriving soon for reservation ${reservationNumber}`
+      );
+    } catch (err) {
+      log.error(`Error setting mode: ${err}`);
     }
+  } else {
+    log.error(`No arriving_soon_mode set in config`);
+  }
 };
 
 const dateInPast = function (firstDate) {
@@ -446,7 +459,9 @@ const startSchedule = (sched) => {
       sched.arrivingSoonSchedule = schedule.scheduleJob(
         new Date(sched.arriving),
         ((context) => {
-          log.debug(`Executing arriving soon actions for reservation ${context.reservationNumber}`);
+          log.debug(
+            `Executing arriving soon actions for reservation ${context.reservationNumber}`
+          );
           runArrivingSoonActions(
             context.phoneNumber,
             context.reservationNumber
@@ -460,7 +475,9 @@ const startSchedule = (sched) => {
       log.debug(`Skipping scheduling arrivingSoon date - it's in the past`);
     }
   } else {
-    log.debug(`No arriving soon date set for reservation ${sched.reservationNumber}`);
+    log.debug(
+      `No arriving soon date set for reservation ${sched.reservationNumber}`
+    );
   }
 };
 
@@ -500,9 +517,11 @@ const getSchedules = async (firstRun) => {
 
     let arrivingSoonStart, arrivingSoonDate;
     if (config.get("arrivingSoonTime")) {
-      log.debug(`Processing arriving soon time for reservation ${reservationNumber}`);
+      log.debug(
+        `Processing arriving soon time for reservation ${reservationNumber}`
+      );
       arrivingSoonStart = convertStrToDate(config.get("arrivingSoonTime"));
-      
+
       // Create the base date from the check-in date
       arrivingSoonDate = new Date(
         events[i].start.getUTCFullYear(),
@@ -512,13 +531,15 @@ const getSchedules = async (firstRun) => {
         arrivingSoonStart.min,
         arrivingSoonStart.sec
       );
-      
+
       // Apply the day offset (default to 0 if not set)
-      const dayOffset = config.has("arrivingSoonDayOffset") ? config.get("arrivingSoonDayOffset") : 0;
-      arrivingSoonDate.setDate(
-        arrivingSoonDate.getDate() + dayOffset
+      const dayOffset = config.has("arrivingSoonDayOffset")
+        ? config.get("arrivingSoonDayOffset")
+        : 0;
+      arrivingSoonDate.setDate(arrivingSoonDate.getDate() + dayOffset);
+      log.debug(
+        `Calculated arriving soon date: ${formatDate(arrivingSoonDate)}`
       );
-      log.debug(`Calculated arriving soon date: ${formatDate(arrivingSoonDate)}`);
     }
 
     // Skip if the reservation is in the past
@@ -743,80 +764,84 @@ const writeScheduledVisits = async (visits) => {
 
 // Update the scheduleVisit function to use the new handleModeChange
 const scheduleVisit = (visit) => {
-    log.debug(`Scheduling visit ${visit.id} with ${visit.modeChanges.length} mode changes`);
+  log.debug(
+    `Scheduling visit ${visit.id} with ${visit.modeChanges.length} mode changes`
+  );
 
-    // Cancel existing jobs if they exist
-    if (scheduledVisitJobs.has(visit.id)) {
-        log.debug(`Cancelling existing jobs for visit ${visit.id}`);
-        scheduledVisitJobs.get(visit.id).forEach((job) => {
-            if (job && typeof job.cancel === "function") {
-                job.cancel();
-            }
-        });
-        scheduledVisitJobs.delete(visit.id);
+  // Cancel existing jobs if they exist
+  if (scheduledVisitJobs.has(visit.id)) {
+    log.debug(`Cancelling existing jobs for visit ${visit.id}`);
+    scheduledVisitJobs.get(visit.id).forEach((job) => {
+      if (job && typeof job.cancel === "function") {
+        job.cancel();
+      }
+    });
+    scheduledVisitJobs.delete(visit.id);
+  }
+
+  // Create jobs for each mode change
+  const jobs = visit.modeChanges.map(async (change) => {
+    const changeDate = moment(change.time).tz(config.get("timezone")).toDate();
+
+    // Get the appropriate mode from config based on the selected mode
+    let mode;
+    switch (change.mode) {
+      case "checkin":
+        mode = config.get("checkin_mode");
+        break;
+      case "checkout":
+        mode = config.get("checkout_mode");
+        break;
+      case "arriving_soon":
+        mode = config.get("arriving_soon_mode");
+        break;
+      default:
+        log.error(`Invalid mode selected: ${change.mode}`);
+        return null;
     }
 
-    // Create jobs for each mode change
-    const jobs = visit.modeChanges.map(async (change) => {
-        const changeDate = moment(change.time).tz(config.get("timezone")).toDate();
+    if (!mode) {
+      log.error(`No mode configured for ${change.mode}`);
+      return null;
+    }
 
-        // Get the appropriate mode from config based on the selected mode
-        let mode;
-        switch (change.mode) {
-            case "checkin":
-                mode = config.get("checkin_mode");
-                break;
-            case "checkout":
-                mode = config.get("checkout_mode");
-                break;
-            case "arriving_soon":
-                mode = config.get("arriving_soon_mode");
-                break;
-            default:
-                log.error(`Invalid mode selected: ${change.mode}`);
-                return null;
+    return schedule.scheduleJob(changeDate, async () => {
+      try {
+        await handleModeChange(mode, `Scheduled visit ${visit.id}`);
+
+        // If this is the first mode change and phone number is provided, set the lock code
+        if (visit.phone && change === visit.modeChanges[0]) {
+          try {
+            await setLockCode(visit.phone, `${visit.name}`);
+          } catch (err) {
+            log.error(`Error setting lock code: ${err}`);
+          }
         }
 
-        if (!mode) {
-            log.error(`No mode configured for ${change.mode}`);
-            return null;
+        // If this is the last mode change, clean up
+        if (change === visit.modeChanges[visit.modeChanges.length - 1]) {
+          // Remove the visit from the file
+          const visits = await readScheduledVisits();
+          const updatedVisits = visits.filter((v) => v.id !== visit.id);
+          await writeScheduledVisits(updatedVisits);
+          log.debug(`Removed completed visit ${visit.id} from storage`);
+
+          // Remove the jobs from our map
+          scheduledVisitJobs.delete(visit.id);
+          log.debug(`Cleaned up jobs for visit ${visit.id}`);
         }
-
-        return schedule.scheduleJob(changeDate, async () => {
-            try {
-                await handleModeChange(mode, `Scheduled visit ${visit.id}`);
-
-                // If this is the first mode change and phone number is provided, set the lock code
-                if (visit.phone && change === visit.modeChanges[0]) {
-                    try {
-                        await setLockCode(visit.phone, `${visit.name}`);
-                    } catch (err) {
-                        log.error(`Error setting lock code: ${err}`);
-                    }
-                }
-
-                // If this is the last mode change, clean up
-                if (change === visit.modeChanges[visit.modeChanges.length - 1]) {
-                    // Remove the visit from the file
-                    const visits = await readScheduledVisits();
-                    const updatedVisits = visits.filter((v) => v.id !== visit.id);
-                    await writeScheduledVisits(updatedVisits);
-                    log.debug(`Removed completed visit ${visit.id} from storage`);
-
-                    // Remove the jobs from our map
-                    scheduledVisitJobs.delete(visit.id);
-                    log.debug(`Cleaned up jobs for visit ${visit.id}`);
-                }
-            } catch (err) {
-                log.error(`Error executing mode change for visit ${visit.id}: ${err}`);
-            }
-        });
+      } catch (err) {
+        log.error(`Error executing mode change for visit ${visit.id}: ${err}`);
+      }
     });
+  });
 
-    // Filter out null jobs and store the rest
-    const validJobs = jobs.filter((job) => job !== null);
-    scheduledVisitJobs.set(visit.id, validJobs);
-    log.debug(`Successfully scheduled ${validJobs.length} jobs for visit ${visit.id}`);
+  // Filter out null jobs and store the rest
+  const validJobs = jobs.filter((job) => job !== null);
+  scheduledVisitJobs.set(visit.id, validJobs);
+  log.debug(
+    `Successfully scheduled ${validJobs.length} jobs for visit ${visit.id}`
+  );
 };
 
 // Function to initialize scheduled visits
@@ -944,7 +969,7 @@ app.get("/api/schedules", (req, res) => {
       end: schedules[key].end,
       phoneNumber: schedules[key].phoneNumber,
       reservationNumber: schedules[key].reservationNumber,
-      arriving: schedules[key].arriving
+      arriving: schedules[key].arriving,
     };
   }
   res.json(cleanSchedules);
@@ -1109,6 +1134,89 @@ app.post("/api/config", async (req, res) => {
   }
 });
 
+// Add late check-out endpoint
+app.post(
+  "/api/schedules/:reservationNumber/late-checkout",
+  async (req, res) => {
+    try {
+      const { reservationNumber } = req.params;
+      const { newCheckoutTime } = req.body;
+
+      if (!newCheckoutTime) {
+        return res
+          .status(400)
+          .json({ error: "New check-out time is required" });
+      }
+
+      // Validate the reservation exists
+      if (!schedules[reservationNumber]) {
+        return res.status(404).json({ error: "Reservation not found" });
+      }
+
+      // Validate the new check-out time is in the future
+      const newTime = new Date(newCheckoutTime);
+      if (newTime <= new Date()) {
+        return res
+          .status(400)
+          .json({ error: "New check-out time must be in the future" });
+      }
+
+      // Validate the new check-out time is after the check-in time
+      const checkInTime = new Date(schedules[reservationNumber].start);
+      if (newTime <= checkInTime) {
+        return res
+          .status(400)
+          .json({ error: "New check-out time must be after check-in time" });
+      }
+
+      log.info(
+        `Updating check-out time for reservation ${reservationNumber} to ${formatDate(
+          newTime
+        )}`
+      );
+
+      // Cancel existing check-out schedule
+      if (schedules[reservationNumber].endSchedule) {
+        schedules[reservationNumber].endSchedule.cancel();
+      }
+
+      // Update the schedule
+      schedules[reservationNumber].end = newTime.toISOString();
+
+      // Create new check-out schedule
+      schedules[reservationNumber].endSchedule = schedule.scheduleJob(
+        newTime,
+        ((context) => {
+          runCheckOutActions(context.phoneNumber, context.reservationNumber);
+        }).bind(null, {
+          phoneNumber: schedules[reservationNumber].phoneNumber,
+          reservationNumber: reservationNumber,
+        })
+      );
+
+      // Send notification
+      if (pushover) {
+        await sendPushoverNotification(
+          `Late check-out scheduled for reservation ${reservationNumber} to ${formatDate(
+            newTime
+          )}`
+        );
+      }
+
+      res.json({
+        message: "Check-out time updated successfully",
+        newCheckoutTime: newTime.toISOString(),
+      });
+    } catch (error) {
+      log.error(`Error updating check-out time: ${error}`);
+      res.status(500).json({
+        error: "Failed to update check-out time",
+        details: error.message,
+      });
+    }
+  }
+);
+
 // Start server
 const PORT = config.get("port") || 3000;
 const server = app.listen(PORT, "0.0.0.0", () => {
@@ -1119,7 +1227,9 @@ const server = app.listen(PORT, "0.0.0.0", () => {
   log.debug(`- Environment: ${process.env.NODE_ENV || "production"}`);
   log.debug(`- Config file: config/${process.env.NODE_ENV || "default"}.json`);
   log.debug(`- Arriving Soon Time: ${config.get("arrivingSoonTime")}`);
-  log.debug(`- Arriving Soon Day Offset: ${config.get("arrivingSoonDayOffset")}`);
+  log.debug(
+    `- Arriving Soon Day Offset: ${config.get("arrivingSoonDayOffset")}`
+  );
   log.debug(`- Arriving Soon Mode: ${config.get("arriving_soon_mode")}`);
   initFileWatcher();
 });
