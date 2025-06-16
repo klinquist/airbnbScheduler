@@ -489,6 +489,7 @@ let scheduledVisitsWatcher = null;
 let scheduledVisitsCache = null;
 let lastWriteTime = 0;
 const WRITE_COOLDOWN = 1000; // 1 second cooldown between writes
+let isWatcherDisabled = false; // Add flag to control file watcher
 
 // Initialize file watcher
 const initFileWatcher = () => {
@@ -504,8 +505,12 @@ const initFileWatcher = () => {
     });
 
     scheduledVisitsWatcher.on("change", (path) => {
-      log.debug("Scheduled visits file modified externally");
-      scheduledVisitsCache = null; // Invalidate cache
+      if (!isWatcherDisabled) {
+        log.debug("Scheduled visits file modified externally");
+        scheduledVisitsCache = null; // Invalidate cache
+      } else {
+        log.debug("File watcher temporarily disabled, ignoring change");
+      }
     });
 
     scheduledVisitsWatcher.on("error", (error) => {
@@ -514,6 +519,12 @@ const initFileWatcher = () => {
   } catch (error) {
     log.error(`Failed to initialize file watcher: ${error}`);
   }
+};
+
+// Add function to control file watcher
+const setWatcherEnabled = (enabled) => {
+  isWatcherDisabled = !enabled;
+  log.debug(`File watcher ${enabled ? "enabled" : "disabled"}`);
 };
 
 // Modified readScheduledVisits function with caching
@@ -575,7 +586,7 @@ const writeScheduledVisits = async (visits) => {
   }
 };
 
-// Update the scheduleVisit function to use the new handleModeChange
+// Update the scheduleVisit function to use the watcher control
 const scheduleVisit = (visit) => {
   log.debug(
     `Scheduling visit ${visit.id} with ${visit.modeChanges.length} mode changes`
@@ -633,18 +644,28 @@ const scheduleVisit = (visit) => {
 
         // If this is the last mode change, clean up
         if (change === visit.modeChanges[visit.modeChanges.length - 1]) {
-          // Remove the visit from the file
-          const visits = await readScheduledVisits();
-          const updatedVisits = visits.filter((v) => v.id !== visit.id);
-          await writeScheduledVisits(updatedVisits);
-          log.debug(`Removed completed visit ${visit.id} from storage`);
+          try {
+            // Disable file watcher before cleanup
+            setWatcherEnabled(false);
 
-          // Remove the jobs from our map
-          scheduledVisitJobs.delete(visit.id);
-          log.debug(`Cleaned up jobs for visit ${visit.id}`);
+            // Remove the visit from the file
+            const visits = await readScheduledVisits();
+            const updatedVisits = visits.filter((v) => v.id !== visit.id);
+            await writeScheduledVisits(updatedVisits);
+            log.debug(`Removed completed visit ${visit.id} from storage`);
+
+            // Remove the jobs from our map
+            scheduledVisitJobs.delete(visit.id);
+            log.debug(`Cleaned up jobs for visit ${visit.id}`);
+          } finally {
+            // Re-enable file watcher after cleanup
+            setWatcherEnabled(true);
+          }
         }
       } catch (err) {
         log.error(`Error executing mode change for visit ${visit.id}: ${err}`);
+        // Ensure file watcher is re-enabled even if there's an error
+        setWatcherEnabled(true);
       }
     });
   });
