@@ -548,7 +548,7 @@ const readScheduledVisits = async () => {
   }
 };
 
-// Modified writeScheduledVisits function with change detection
+// Modified writeScheduledVisits function with change detection and watcher control
 const writeScheduledVisits = async (visits) => {
   try {
     const filePath = path.join(__dirname, "data", "scheduled_visits.json");
@@ -572,14 +572,22 @@ const writeScheduledVisits = async (visits) => {
       return;
     }
 
-    // Write new data
-    await writeFileAsync(filePath, JSON.stringify(visits, null, 2));
-    lastWriteTime = now;
+    // Disable file watcher before writing to prevent infinite loop
+    setWatcherEnabled(false);
+    
+    try {
+      // Write new data
+      await writeFileAsync(filePath, JSON.stringify(visits, null, 2));
+      lastWriteTime = now;
 
-    // Update cache
-    scheduledVisitsCache = visits;
+      // Update cache
+      scheduledVisitsCache = visits;
 
-    log.debug("Successfully wrote scheduled visits to file");
+      log.debug("Successfully wrote scheduled visits to file");
+    } finally {
+      // Always re-enable file watcher, even if write fails
+      setWatcherEnabled(true);
+    }
   } catch (error) {
     log.error(`Error writing scheduled visits: ${error}`);
     throw error;
@@ -645,9 +653,6 @@ const scheduleVisit = (visit) => {
         // If this is the last mode change, clean up
         if (change === visit.modeChanges[visit.modeChanges.length - 1]) {
           try {
-            // Disable file watcher before cleanup
-            setWatcherEnabled(false);
-
             // Remove the visit from the file
             const visits = await readScheduledVisits();
             const updatedVisits = visits.filter((v) => v.id !== visit.id);
@@ -657,15 +662,12 @@ const scheduleVisit = (visit) => {
             // Remove the jobs from our map
             scheduledVisitJobs.delete(visit.id);
             log.debug(`Cleaned up jobs for visit ${visit.id}`);
-          } finally {
-            // Re-enable file watcher after cleanup
-            setWatcherEnabled(true);
+          } catch (cleanupError) {
+            log.error(`Error during cleanup of visit ${visit.id}: ${cleanupError}`);
           }
         }
       } catch (err) {
         log.error(`Error executing mode change for visit ${visit.id}: ${err}`);
-        // Ensure file watcher is re-enabled even if there's an error
-        setWatcherEnabled(true);
       }
     });
   });
