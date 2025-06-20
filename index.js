@@ -612,7 +612,7 @@ const scheduleVisit = (visit) => {
   }
 
   // Create jobs for each mode change
-  const jobs = visit.modeChanges.map(async (change) => {
+  const jobs = visit.modeChanges.map(async (change, changeIndex) => {
     const changeDate = moment(change.time).tz(config.get("timezone")).toDate();
 
     // Get the appropriate mode from config based on the selected mode
@@ -642,7 +642,7 @@ const scheduleVisit = (visit) => {
         await handleModeChange(mode, `Scheduled visit ${visit.id}`);
 
         // If this is the first mode change and phone number is provided, set the lock code
-        if (visit.phone && change === visit.modeChanges[0]) {
+        if (visit.phone && changeIndex === 0) {
           try {
             await setLockCode(visit.phone, `${visit.name}`);
           } catch (err) {
@@ -651,7 +651,7 @@ const scheduleVisit = (visit) => {
         }
 
         // If this is the last mode change, clean up
-        if (change === visit.modeChanges[visit.modeChanges.length - 1]) {
+        if (changeIndex === visit.modeChanges.length - 1) {
           try {
             // Remove the visit from the file
             const visits = await readScheduledVisits();
