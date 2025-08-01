@@ -1274,18 +1274,19 @@
           const config = await response.json();
           console.log("Loaded config:", config);
 
-          // Set time values directly
+          // Convert times to 24-hour format for time inputs
           if (config.arrivalScheduleTime) {
             document.getElementById("arrivalScheduleTime").value =
-              config.arrivalScheduleTime;
+              convertTo24Hour(config.arrivalScheduleTime);
           }
           if (config.departureScheduleTime) {
             document.getElementById("departureScheduleTime").value =
-              config.departureScheduleTime;
+              convertTo24Hour(config.departureScheduleTime);
           }
           if (config.arrivingSoonTime) {
-            document.getElementById("arrivingSoonTime").value =
-              config.arrivingSoonTime;
+            document.getElementById("arrivingSoonTime").value = convertTo24Hour(
+              config.arrivingSoonTime
+            );
           }
 
           // Set other fields
@@ -1404,9 +1405,9 @@
         }
 
         const config = {
-          arrivalScheduleTime: arrivalTime,
-          departureScheduleTime: departureTime,
-          arrivingSoonTime: arrivingSoonTime,
+          arrivalScheduleTime: convertTo12Hour(arrivalTime),
+          departureScheduleTime: convertTo12Hour(departureTime),
+          arrivingSoonTime: convertTo12Hour(arrivingSoonTime),
           arrivingSoonDayOffset: parseInt(
             document.getElementById("arrivingSoonDayOffset").value
           ),
