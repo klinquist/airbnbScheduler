@@ -782,41 +782,29 @@
                 <div class="form-group">
                   <label for="arrivalScheduleTime">Arrival Time</label>
                   <input
-                    type="text"
+                    type="time"
                     id="arrivalScheduleTime"
                     required
-                    placeholder="10:00 AM"
-                    pattern="^(1[0-2]|0?[1-9]):[0-5][0-9] (AM|PM)$"
+                    step="300"
                   />
-                  <small style="color: #666; font-size: 0.9em"
-                    >Use 12-hour format (e.g., 10:00 AM, 3:00 PM)</small
-                  >
                 </div>
                 <div class="form-group">
                   <label for="departureScheduleTime">Departure Time</label>
                   <input
-                    type="text"
+                    type="time"
                     id="departureScheduleTime"
                     required
-                    placeholder="3:00 PM"
-                    pattern="^(1[0-2]|0?[1-9]):[0-5][0-9] (AM|PM)$"
+                    step="300"
                   />
-                  <small style="color: #666; font-size: 0.9em"
-                    >Use 12-hour format (e.g., 10:00 AM, 3:00 PM)</small
-                  >
                 </div>
                 <div class="form-group">
                   <label for="arrivingSoonTime">Arriving Soon Time</label>
                   <input
-                    type="text"
+                    type="time"
                     id="arrivingSoonTime"
                     required
-                    placeholder="12:01 AM"
-                    pattern="^(1[0-2]|0?[1-9]):[0-5][0-9] (AM|PM)$"
+                    step="300"
                   />
-                  <small style="color: #666; font-size: 0.9em"
-                    >Use 12-hour format (e.g., 12:01 AM, 3:00 PM)</small
-                  >
                 </div>
                 <div class="form-group">
                   <label for="arrivingSoonDayOffset"
@@ -1286,18 +1274,19 @@
           const config = await response.json();
           console.log("Loaded config:", config);
 
-          // Set time values directly (12-hour format)
+          // Convert times to 24-hour format for time inputs
           if (config.arrivalScheduleTime) {
             document.getElementById("arrivalScheduleTime").value =
-              config.arrivalScheduleTime;
+              convertTo24Hour(config.arrivalScheduleTime);
           }
           if (config.departureScheduleTime) {
             document.getElementById("departureScheduleTime").value =
-              config.departureScheduleTime;
+              convertTo24Hour(config.departureScheduleTime);
           }
           if (config.arrivingSoonTime) {
-            document.getElementById("arrivingSoonTime").value =
-              config.arrivingSoonTime;
+            document.getElementById("arrivingSoonTime").value = convertTo24Hour(
+              config.arrivingSoonTime
+            );
           }
 
           // Set other fields
@@ -1416,9 +1405,9 @@
         }
 
         const config = {
-          arrivalScheduleTime: arrivalTime,
-          departureScheduleTime: departureTime,
-          arrivingSoonTime: arrivingSoonTime,
+          arrivalScheduleTime: convertTo12Hour(arrivalTime),
+          departureScheduleTime: convertTo12Hour(departureTime),
+          arrivingSoonTime: convertTo12Hour(arrivingSoonTime),
           arrivingSoonDayOffset: parseInt(
             document.getElementById("arrivingSoonDayOffset").value
           ),
