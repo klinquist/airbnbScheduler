@@ -787,10 +787,6 @@
                     required
                     step="300"
                   />
-                  <small style="color: #666; font-size: 0.9em"
-                    >Use the time picker or enter 24-hour format (e.g., 10:00
-                    for 10:00 AM)</small
-                  >
                 </div>
                 <div class="form-group">
                   <label for="departureScheduleTime">Departure Time</label>
@@ -800,10 +796,6 @@
                     required
                     step="300"
                   />
-                  <small style="color: #666; font-size: 0.9em"
-                    >Use the time picker or enter 24-hour format (e.g., 15:00
-                    for 3:00 PM)</small
-                  >
                 </div>
                 <div class="form-group">
                   <label for="arrivingSoonTime">Arriving Soon Time</label>
@@ -813,10 +805,6 @@
                     required
                     step="300"
                   />
-                  <small style="color: #666; font-size: 0.9em"
-                    >Use the time picker or enter 24-hour format (e.g., 00:01
-                    for 12:01 AM)</small
-                  >
                 </div>
                 <div class="form-group">
                   <label for="arrivingSoonDayOffset"
@@ -1286,24 +1274,18 @@
           const config = await response.json();
           console.log("Loaded config:", config);
 
-          // Convert times to 24-hour format for time inputs
+          // Set time values directly
           if (config.arrivalScheduleTime) {
             document.getElementById("arrivalScheduleTime").value =
-              convertTo24Hour(config.arrivalScheduleTime);
+              config.arrivalScheduleTime;
           }
           if (config.departureScheduleTime) {
             document.getElementById("departureScheduleTime").value =
-              convertTo24Hour(config.departureScheduleTime);
+              config.departureScheduleTime;
           }
           if (config.arrivingSoonTime) {
-            console.log("Original arrivingSoonTime:", config.arrivingSoonTime);
-            const converted = convertTo24Hour(config.arrivingSoonTime);
-            console.log("Converted to:", converted);
-            document.getElementById("arrivingSoonTime").value = converted;
-            console.log(
-              "Set value to:",
-              document.getElementById("arrivingSoonTime").value
-            );
+            document.getElementById("arrivingSoonTime").value =
+              config.arrivingSoonTime;
           }
 
           // Set other fields
@@ -1422,9 +1404,9 @@
         }
 
         const config = {
-          arrivalScheduleTime: convertTo12Hour(arrivalTime),
-          departureScheduleTime: convertTo12Hour(departureTime),
-          arrivingSoonTime: convertTo12Hour(arrivingSoonTime),
+          arrivalScheduleTime: arrivalTime,
+          departureScheduleTime: departureTime,
+          arrivingSoonTime: arrivingSoonTime,
           arrivingSoonDayOffset: parseInt(
             document.getElementById("arrivingSoonDayOffset").value
           ),
