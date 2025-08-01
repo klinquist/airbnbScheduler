@@ -1335,20 +1335,49 @@
       }
 
       function convertTo24Hour(time12h) {
+        if (!time12h || typeof time12h !== 'string') {
+          return '';
+        }
+        
         const [time, modifier] = time12h.split(" ");
+        if (!time || !modifier) {
+          return '';
+        }
+        
         let [hours, minutes] = time.split(":");
         hours = parseInt(hours);
+        minutes = parseInt(minutes);
+        
+        if (isNaN(hours) || isNaN(minutes)) {
+          return '';
+        }
+        
         if (modifier === "PM" && hours < 12) hours += 12;
         if (modifier === "AM" && hours === 12) hours = 0;
-        return `${hours.toString().padStart(2, "0")}:${minutes}`;
+        
+        return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}`;
       }
 
       function convertTo12Hour(time24h) {
+        if (!time24h || typeof time24h !== 'string') {
+          return '';
+        }
+        
         const [hours, minutes] = time24h.split(":");
+        if (!hours || !minutes) {
+          return '';
+        }
+        
         const hour = parseInt(hours);
+        const minute = parseInt(minutes);
+        
+        if (isNaN(hour) || isNaN(minute)) {
+          return '';
+        }
+        
         const modifier = hour >= 12 ? "PM" : "AM";
         const hour12 = hour % 12 || 12;
-        return `${hour12}:${minutes} ${modifier}`;
+        return `${hour12}:${minute.toString().padStart(2, "0")} ${modifier}`;
       }
 
       // Handle config form submission
@@ -1357,16 +1386,20 @@
         .addEventListener("submit", async (e) => {
           e.preventDefault();
 
+          // Validate time inputs
+          const arrivalTime = document.getElementById("arrivalScheduleTime").value;
+          const departureTime = document.getElementById("departureScheduleTime").value;
+          const arrivingSoonTime = document.getElementById("arrivingSoonTime").value;
+          
+          if (!arrivalTime || !departureTime || !arrivingSoonTime) {
+            alert("Please fill in all time fields");
+            return;
+          }
+          
           const config = {
-            arrivalScheduleTime: convertTo12Hour(
-              document.getElementById("arrivalScheduleTime").value
-            ),
-            departureScheduleTime: convertTo12Hour(
-              document.getElementById("departureScheduleTime").value
-            ),
-            arrivingSoonTime: convertTo12Hour(
-              document.getElementById("arrivingSoonTime").value
-            ),
+            arrivalScheduleTime: convertTo12Hour(arrivalTime),
+            departureScheduleTime: convertTo12Hour(departureTime),
+            arrivingSoonTime: convertTo12Hour(arrivingSoonTime),
             arrivingSoonDayOffset: parseInt(
               document.getElementById("arrivingSoonDayOffset").value
             ),
