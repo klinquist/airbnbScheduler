@@ -1284,9 +1284,13 @@
               convertTo24Hour(config.departureScheduleTime);
           }
           if (config.arrivingSoonTime) {
-            document.getElementById("arrivingSoonTime").value = convertTo24Hour(
+            console.log(
+              "Converting arrivingSoonTime:",
               config.arrivingSoonTime
             );
+            const converted = convertTo24Hour(config.arrivingSoonTime);
+            console.log("Converted to:", converted);
+            document.getElementById("arrivingSoonTime").value = converted;
           }
 
           // Set other fields
