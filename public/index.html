@@ -986,7 +986,16 @@
           }
 
           const now = new Date();
-          const scheduleHtml = Object.entries(schedules)
+          // Sort reservations by arrival date (soonest first)
+          const sortedSchedules = Object.entries(schedules).sort(
+            ([, scheduleA], [, scheduleB]) => {
+              const arrivalA = new Date(scheduleA.start);
+              const arrivalB = new Date(scheduleB.start);
+              return arrivalA - arrivalB;
+            }
+          );
+
+          const scheduleHtml = sortedSchedules
             .map(([reservationNumber, schedule]) => {
               const isActive =
                 new Date(schedule.start) <= now &&
