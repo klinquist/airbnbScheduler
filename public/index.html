@@ -1393,76 +1393,76 @@
         return `${hour12}:${minute.toString().padStart(2, "0")} ${modifier}`;
       }
 
-      // Handle config form submission
-      document
-        .getElementById("configForm")
-        .addEventListener("submit", async (e) => {
-          e.preventDefault();
 
-          // Validate time inputs
-          const arrivalTime = document.getElementById(
-            "arrivalScheduleTime"
-          ).value;
-          const departureTime = document.getElementById(
-            "departureScheduleTime"
-          ).value;
-          const arrivingSoonTime =
-            document.getElementById("arrivingSoonTime").value;
-
-          if (!arrivalTime || !departureTime || !arrivingSoonTime) {
-            alert("Please fill in all time fields");
-            return;
-          }
-
-          const config = {
-            arrivalScheduleTime: arrivalTime,
-            departureScheduleTime: departureTime,
-            arrivingSoonTime: arrivingSoonTime,
-            arrivingSoonDayOffset: parseInt(
-              document.getElementById("arrivingSoonDayOffset").value
-            ),
-            checkin_mode: document.getElementById("checkin_mode").value,
-            checkout_mode: document.getElementById("checkout_mode").value,
-            arriving_soon_mode:
-              document.getElementById("arriving_soon_mode").value,
-            hubitat_ip: document.getElementById("hubitat_ip").value,
-            hubitat_maker_api_access_token: document.getElementById(
-              "hubitat_maker_api_access_token"
-            ).value,
-            lock_code_slot: document.getElementById("lock_code_slot").value,
-            locks_to_code: document
-              .getElementById("locks_to_code")
-              .value.split(",")
-              .map((s) => s.trim()),
-            pushover: {
-              user: document.getElementById("pushover_user").value,
-              token: document.getElementById("pushover_token").value,
-            },
-          };
-
-          try {
-            const response = await fetch("/api/config", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify(config),
-            });
-
-            if (response.ok) {
-              alert("Configuration saved successfully");
-              loadConfig(); // Reload to ensure we have the latest values
-            } else {
-              alert("Failed to save configuration");
-            }
-          } catch (error) {
-            console.log("Error saving config:", error);
-            alert("Failed to save configuration");
-          }
-        });
 
       // Load config when the page loads
       loadConfig();
+
+      // Handle config form submission
+      async function saveConfig(event) {
+        event.preventDefault();
+
+        // Validate time inputs
+        const arrivalTime = document.getElementById(
+          "arrivalScheduleTime"
+        ).value;
+        const departureTime = document.getElementById(
+          "departureScheduleTime"
+        ).value;
+        const arrivingSoonTime =
+          document.getElementById("arrivingSoonTime").value;
+
+        if (!arrivalTime || !departureTime || !arrivingSoonTime) {
+          alert("Please fill in all time fields");
+          return;
+        }
+
+        const config = {
+          arrivalScheduleTime: arrivalTime,
+          departureScheduleTime: departureTime,
+          arrivingSoonTime: arrivingSoonTime,
+          arrivingSoonDayOffset: parseInt(
+            document.getElementById("arrivingSoonDayOffset").value
+          ),
+          checkin_mode: document.getElementById("checkin_mode").value,
+          checkout_mode: document.getElementById("checkout_mode").value,
+          arriving_soon_mode:
+            document.getElementById("arriving_soon_mode").value,
+          hubitat_ip: document.getElementById("hubitat_ip").value,
+          hubitat_maker_api_access_token: document.getElementById(
+            "hubitat_maker_api_access_token"
+          ).value,
+          lock_code_slot: document.getElementById("lock_code_slot").value,
+          locks_to_code: document
+            .getElementById("locks_to_code")
+            .value.split(",")
+            .map((s) => s.trim()),
+          pushover: {
+            user: document.getElementById("pushover_user").value,
+            token: document.getElementById("pushover_token").value,
+          },
+        };
+
+        try {
+          const response = await fetch("/api/config", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(config),
+          });
+
+          if (response.ok) {
+            alert("Configuration saved successfully");
+            loadConfig(); // Reload to ensure we have the latest values
+          } else {
+            alert("Failed to save configuration");
+          }
+        } catch (error) {
+          console.log("Error saving config:", error);
+          alert("Failed to save configuration");
+        }
+      }
 
       // Initial load
       refreshData();
