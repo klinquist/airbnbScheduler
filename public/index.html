@@ -787,6 +787,10 @@
                     required
                     step="300"
                   />
+                  <small style="color: #666; font-size: 0.9em"
+                    >Use the time picker or enter 24-hour format (e.g., 10:00
+                    for 10:00 AM)</small
+                  >
                 </div>
                 <div class="form-group">
                   <label for="departureScheduleTime">Departure Time</label>
@@ -796,6 +800,10 @@
                     required
                     step="300"
                   />
+                  <small style="color: #666; font-size: 0.9em"
+                    >Use the time picker or enter 24-hour format (e.g., 15:00
+                    for 3:00 PM)</small
+                  >
                 </div>
                 <div class="form-group">
                   <label for="arrivingSoonTime">Arriving Soon Time</label>
@@ -805,6 +813,10 @@
                     required
                     step="300"
                   />
+                  <small style="color: #666; font-size: 0.9em"
+                    >Use the time picker or enter 24-hour format (e.g., 00:01
+                    for 12:01 AM)</small
+                  >
                 </div>
                 <div class="form-group">
                   <label for="arrivingSoonDayOffset"
@@ -1284,13 +1296,14 @@
               convertTo24Hour(config.departureScheduleTime);
           }
           if (config.arrivingSoonTime) {
-            console.log(
-              "Converting arrivingSoonTime:",
-              config.arrivingSoonTime
-            );
+            console.log("Original arrivingSoonTime:", config.arrivingSoonTime);
             const converted = convertTo24Hour(config.arrivingSoonTime);
             console.log("Converted to:", converted);
             document.getElementById("arrivingSoonTime").value = converted;
+            console.log(
+              "Set value to:",
+              document.getElementById("arrivingSoonTime").value
+            );
           }
 
           // Set other fields
