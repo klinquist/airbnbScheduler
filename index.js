@@ -641,12 +641,21 @@ const scheduleVisit = (visit) => {
       try {
         await handleModeChange(mode, `Scheduled visit ${visit.id}`);
 
-        // If this is the first mode change and phone number is provided, set the lock code
-        if (visit.phone && changeIndex === 0) {
+        // Set lock code on check-in
+        if (visit.phone && change.mode === "checkin") {
           try {
             await setLockCode(visit.phone, `${visit.name}`);
           } catch (err) {
             log.error(`Error setting lock code: ${err}`);
+          }
+        }
+
+        // Remove lock code on check-out
+        if (visit.phone && change.mode === "checkout") {
+          try {
+            await removeLockCode(visit.phone);
+          } catch (err) {
+            log.error(`Error removing lock code: ${err}`);
           }
         }
 
