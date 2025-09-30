@@ -690,6 +690,26 @@ const initializeScheduledVisits = async () => {
 
     // Filter out past visits and schedule future ones
     const futureVisits = visits.filter((visit) => {
+      // For manual visits, check the latest mode change time
+      if (visit.modeChanges && visit.modeChanges.length > 0) {
+        // Find the latest mode change time
+        const latestModeChange = visit.modeChanges.reduce((latest, change) => {
+          const changeTime = moment(change.time).tz(config.get("timezone"));
+          return changeTime.isAfter(latest) ? changeTime : latest;
+        }, moment(0));
+
+        const isFuture = latestModeChange.isAfter(now);
+        if (!isFuture) {
+          log.debug(
+            `Filtering out past visit ${
+              visit.id
+            } (latest mode change was ${latestModeChange.format("MMM D, YYYY h:mm A z")})`
+          );
+        }
+        return isFuture;
+      }
+
+      // Fallback for visits with a date field (legacy support)
       const visitDate = moment(visit.date).tz(config.get("timezone"));
       const isFuture = visitDate.isAfter(now);
       if (!isFuture) {
