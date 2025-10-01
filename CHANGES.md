@@ -2,6 +2,16 @@
 
 ## 2025-10-01
 
+### Fixed: Current active code not showing for manual visits
+
+**Issue**: When a lock code was active via a manual visit, the web interface displayed "No active code" because it only checked Airbnb reservations.
+
+**Changes**:
+- Modified `/api/current-code` endpoint (index.js:1077-1133) to also check manual visits
+- Logic: After checking Airbnb reservations, checks manual visits to see if we're between a "checkin" and "checkout" mode change
+- Only considers visits with phone numbers
+- Displays phone number and visit name when a manual visit code is active
+
 ### Fixed: Unnecessary rescheduling of manual visits on every cron run
 
 **Issue**: Manual visits were being cancelled and rescheduled every hour when the calendar check ran, even though nothing had changed.

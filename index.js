@@ -1074,9 +1074,11 @@ app.get("/api/schedules", (req, res) => {
 });
 
 // Get current active code
-app.get("/api/current-code", (req, res) => {
+app.get("/api/current-code", async (req, res) => {
   try {
     let currentCode = [];
+
+    // Check Airbnb reservations
     for (const k in schedules) {
       if (
         moment().isBetween(
@@ -1091,6 +1093,38 @@ app.get("/api/current-code", (req, res) => {
         break;
       }
     }
+
+    // If no Airbnb reservation is active, check manual visits
+    if (currentCode.length === 0) {
+      const visits = await readScheduledVisits();
+      const now = moment().tz(config.get("timezone"));
+
+      for (const visit of visits) {
+        // Only consider visits with phone numbers
+        if (!visit.phone) continue;
+
+        // Find checkin and checkout mode changes
+        let checkinTime = null;
+        let checkoutTime = null;
+
+        for (const change of visit.modeChanges) {
+          const changeTime = moment(change.time).tz(config.get("timezone"));
+          if (change.mode === "checkin" && changeTime.isBefore(now)) {
+            checkinTime = changeTime;
+          }
+          if (change.mode === "checkout" && changeTime.isAfter(now)) {
+            checkoutTime = changeTime;
+          }
+        }
+
+        // If we've checked in but haven't checked out yet, this code is active
+        if (checkinTime && checkoutTime) {
+          currentCode = [visit.phone, visit.name];
+          break;
+        }
+      }
+    }
+
     res.json({ currentCode });
   } catch (error) {
     log.error(`Error getting current code: ${error}`);
