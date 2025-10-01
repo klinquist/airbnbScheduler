@@ -612,7 +612,7 @@ const scheduleVisit = (visit) => {
   }
 
   // Create jobs for each mode change
-  const jobs = visit.modeChanges.map(async (change, changeIndex) => {
+  const jobs = visit.modeChanges.map((change, changeIndex) => {
     const changeDate = moment(change.time).tz(config.get("timezone")).toDate();
 
     // Get the appropriate mode from config based on the selected mode
@@ -880,9 +880,6 @@ const getSchedules = async (firstRun) => {
 
     let arrivingSoonStart, arrivingSoonDate;
     if (config.get("arrivingSoonTime")) {
-      log.debug(
-        `Processing arriving soon time for reservation ${reservationNumber}`
-      );
       arrivingSoonStart = convertStrToDate(config.get("arrivingSoonTime"));
 
       // Create the base date from the check-in date
@@ -900,9 +897,6 @@ const getSchedules = async (firstRun) => {
         ? config.get("arrivingSoonDayOffset")
         : 0;
       arrivingSoonDate.setDate(arrivingSoonDate.getDate() + dayOffset);
-      log.debug(
-        `Calculated arriving soon date: ${formatDate(arrivingSoonDate)}`
-      );
     }
 
     // Skip if the reservation is in the past

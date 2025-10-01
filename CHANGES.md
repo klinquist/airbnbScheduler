@@ -1,5 +1,15 @@
 # Change Log
 
+## 2025-10-01
+
+### Fixed: Multiple duplicate notifications for manual visit mode changes
+
+**Issue**: Manual visit mode changes were triggering multiple times, causing duplicate push notifications (9+ notifications for a single mode change event).
+
+**Changes**:
+- Removed `async` keyword from the map callback in `scheduleVisit()` function (index.js:615)
+- The async keyword was causing the map to return Promises instead of scheduled job objects, leading to incorrect scheduling behavior
+
 ## 2025-09-30
 
 ### Fixed: Manual visits disappearing after page reload
