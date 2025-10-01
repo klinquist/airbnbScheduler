@@ -1345,7 +1345,6 @@ log.debug("Setting up cron job to check calendar");
   // Schedule the calendar check
   schedule.scheduleJob(config.get("cron_schedule"), async () => {
     await getSchedules();
-    await initializeScheduledVisits(); // Also reinitialize scheduled visits
   });
 
   // Initial setup
