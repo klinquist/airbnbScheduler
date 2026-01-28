@@ -144,6 +144,24 @@
         background-color: var(--secondary-color);
       }
 
+      .add-visit-btn {
+        background-color: var(--success-color);
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 1em;
+        transition: background-color 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .add-visit-btn:hover {
+        background-color: #388e3c;
+      }
+
       .section {
         background: var(--card-bg);
         border-radius: 10px;
@@ -729,6 +747,60 @@
         background-color: var(--danger-color);
         color: white;
       }
+
+      .visit-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 2000;
+      }
+
+      .visit-modal.active {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+
+      .visit-modal-content {
+        background: var(--card-bg);
+        padding: 20px;
+        border-radius: 10px;
+        width: 90%;
+        max-width: 650px;
+        max-height: 80vh;
+        overflow: auto;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+      }
+
+      .visit-modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 10px;
+      }
+
+      .visit-modal-header h3 {
+        margin: 0;
+        color: var(--primary-color);
+      }
+
+      .modal-close-btn {
+        background: none;
+        border: none;
+        font-size: 1.5em;
+        cursor: pointer;
+        color: #666;
+        line-height: 1;
+      }
+
+      .modal-close-btn:hover {
+        color: var(--danger-color);
+      }
     </style>
   </head>
   <body>
@@ -748,6 +820,9 @@
               <button id="changeModeBtn">Change Mode</button>
             </div>
           </div>
+          <button class="add-visit-btn" onclick="openAddVisitModal()">
+            + Add visit
+          </button>
           <button class="refresh-btn" onclick="refreshData()">
             <span>🔄</span> Refresh
           </button>
@@ -785,43 +860,6 @@
           </div>
           <div class="reservation-list" id="upcomingList">
             Loading upcoming...
-          </div>
-          <div class="card">
-            <h2>Add Manual Visit</h2>
-            <form id="visitForm">
-              <div class="form-group">
-                <label for="visitName">Name:</label>
-                <input type="text" id="visitName" required />
-              </div>
-              <div class="form-group">
-                <label for="visitPhone">Phone Number (optional):</label>
-                <input
-                  type="tel"
-                  id="visitPhone"
-                  placeholder="Leave blank to skip lock coding"
-                />
-              </div>
-              <div id="modeChanges">
-                <div class="mode-change">
-                  <div class="form-group">
-                    <label>Date and Time</label>
-                    <input type="datetime-local" class="mode-time" required />
-                  </div>
-                  <div class="form-group">
-                    <label>Mode</label>
-                    <select class="mode-select" required>
-                      <option value="checkin">Check-in Mode</option>
-                      <option value="checkout">Check-out Mode</option>
-                      <option value="arriving_soon">Arriving Soon Mode</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-              <button type="button" id="addModeChange" class="btn-secondary">
-                Add Another Mode Change
-              </button>
-              <button type="submit" class="btn-primary">Schedule Visit</button>
-            </form>
           </div>
         </div>
 
@@ -963,6 +1001,66 @@
             Cancel
           </button>
         </div>
+      </div>
+    </div>
+
+    <div
+      id="addVisitModal"
+      class="visit-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Add manual visit"
+    >
+      <div class="visit-modal-content">
+        <div class="visit-modal-header">
+          <h3>Add Manual Visit</h3>
+          <button class="modal-close-btn" onclick="closeAddVisitModal()">
+            ×
+          </button>
+        </div>
+        <form id="visitForm">
+          <div class="form-group">
+            <label for="visitName">Name:</label>
+            <input type="text" id="visitName" required />
+          </div>
+          <div class="form-group">
+            <label for="visitPhone">Phone Number (optional):</label>
+            <input
+              type="tel"
+              id="visitPhone"
+              placeholder="Leave blank to skip lock coding"
+            />
+          </div>
+          <div id="modeChanges">
+            <div class="mode-change">
+              <div class="form-group">
+                <label>Date and Time</label>
+                <input type="datetime-local" class="mode-time" required />
+              </div>
+              <div class="form-group">
+                <label>Mode</label>
+                <select class="mode-select" required>
+                  <option value="checkin">Check-in Mode</option>
+                  <option value="checkout">Check-out Mode</option>
+                  <option value="arriving_soon">Arriving Soon Mode</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <button type="button" id="addModeChange" class="btn-secondary">
+            Add Another Mode Change
+          </button>
+          <div class="late-checkout-actions">
+            <button type="submit" class="confirm-btn">Schedule Visit</button>
+            <button
+              type="button"
+              class="cancel-btn"
+              onclick="closeAddVisitModal()"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
       </div>
     </div>
 
@@ -1299,6 +1397,52 @@
       });
       document.querySelector(".mode-change").appendChild(initialRemoveButton);
 
+      function resetVisitForm() {
+        document.getElementById("visitForm").reset();
+        document.getElementById("modeChanges").innerHTML = `
+          <div class="mode-change">
+            <div class="form-group">
+              <label>Date and Time</label>
+              <input type="datetime-local" class="mode-time" required />
+            </div>
+            <div class="form-group">
+              <label>Mode</label>
+              <select class="mode-select" required>
+                <option value="checkin">Check-in Mode</option>
+                <option value="checkout">Check-out Mode</option>
+                <option value="arriving_soon">Arriving Soon Mode</option>
+              </select>
+            </div>
+          </div>
+        `;
+
+        const newInitialRemoveButton = document.createElement("button");
+        newInitialRemoveButton.type = "button";
+        newInitialRemoveButton.className = "remove-mode-change btn-secondary";
+        newInitialRemoveButton.textContent = "Remove";
+        newInitialRemoveButton.addEventListener("click", () => {
+          const modeChanges = document.getElementById("modeChanges");
+          if (modeChanges.children.length > 1) {
+            modeChanges.removeChild(modeChanges.firstElementChild);
+          } else {
+            alert("At least one mode change is required");
+          }
+        });
+        document.querySelector(".mode-change").appendChild(newInitialRemoveButton);
+      }
+
+      function openAddVisitModal() {
+        resetVisitForm();
+        const modal = document.getElementById("addVisitModal");
+        modal.classList.add("active");
+        setTimeout(() => document.getElementById("visitName").focus(), 0);
+      }
+
+      function closeAddVisitModal() {
+        const modal = document.getElementById("addVisitModal");
+        modal.classList.remove("active");
+      }
+
       // Handle form submission
       document
         .getElementById("visitForm")
@@ -1334,49 +1478,26 @@
               throw new Error("Failed to schedule visit");
             }
 
-            // Clear form
-            document.getElementById("visitForm").reset();
-            document.getElementById("modeChanges").innerHTML = `
-            <div class="mode-change">
-              <div class="form-group">
-                <label>Date and Time</label>
-                <input type="datetime-local" class="mode-time" required />
-              </div>
-              <div class="form-group">
-                <label>Mode</label>
-                <select class="mode-select" required>
-                  <option value="checkin">Check-in Mode</option>
-                  <option value="checkout">Check-out Mode</option>
-                  <option value="arriving_soon">Arriving Soon Mode</option>
-                </select>
-              </div>
-            </div>
-          `;
-            // Add remove button to the new initial mode change
-            const newInitialRemoveButton = document.createElement("button");
-            newInitialRemoveButton.type = "button";
-            newInitialRemoveButton.className =
-              "remove-mode-change btn-secondary";
-            newInitialRemoveButton.textContent = "Remove";
-            newInitialRemoveButton.addEventListener("click", () => {
-              const modeChanges = document.getElementById("modeChanges");
-              if (modeChanges.children.length > 1) {
-                modeChanges.removeChild(modeChanges.firstElementChild);
-              } else {
-                alert("At least one mode change is required");
-              }
-            });
-            document
-              .querySelector(".mode-change")
-              .appendChild(newInitialRemoveButton);
+            resetVisitForm();
 
-            // Refresh the visits list
+            // Refresh the upcoming list
             await loadUpcoming();
+            closeAddVisitModal();
           } catch (error) {
             console.error("Error scheduling visit:", error);
             alert("Failed to schedule visit");
           }
         });
+
+      document.getElementById("addVisitModal").addEventListener("click", (e) => {
+        if (e.target && e.target.id === "addVisitModal") {
+          closeAddVisitModal();
+        }
+      });
+
+      window.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") closeAddVisitModal();
+      });
 
       // Add config management functions
       async function loadConfig() {
