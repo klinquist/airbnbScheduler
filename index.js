@@ -844,10 +844,18 @@ const initializeScheduledVisits = async () => {
 // Function to add a new scheduled visit
 const addScheduledVisit = async (visit) => {
   try {
+    const firstChange =
+      visit &&
+      Array.isArray(visit.modeChanges) &&
+      visit.modeChanges.length > 0 &&
+      visit.modeChanges[0] &&
+      visit.modeChanges[0].time
+        ? moment(visit.modeChanges[0].time)
+            .tz(config.get("timezone"))
+            .format("MMM D, YYYY h:mm A z")
+        : null;
     log.debug(
-      `Adding new scheduled visit for ${moment(visit.date)
-        .tz(config.get("timezone"))
-        .format("MMM D, YYYY h:mm A z")}`
+      `Adding new scheduled visit${firstChange ? ` (first action: ${firstChange})` : ""}`
     );
     const visits = await readScheduledVisits();
     visit.id = Date.now().toString(); // Ensure visit has an ID

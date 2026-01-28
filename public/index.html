@@ -417,6 +417,18 @@
         box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.1);
       }
 
+      .form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+
+      @media (max-width: 640px) {
+        .form-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
       .helper-text {
         margin-top: -12px;
         margin-bottom: 16px;
@@ -1093,6 +1105,16 @@
             <label for="visitName">Name:</label>
             <input type="text" id="visitName" required />
           </div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="checkinDate">Check-in Date</label>
+              <input type="date" id="checkinDate" required />
+            </div>
+            <div class="form-group">
+              <label for="checkoutDate">Check-out Date</label>
+              <input type="date" id="checkoutDate" required />
+            </div>
+          </div>
           <div class="form-group">
             <label for="visitPhone">Lock Code (optional)</label>
             <input
@@ -1102,13 +1124,14 @@
             />
           </div>
           <div class="helper-text">
-            Add up to 3 scheduled actions. “Check-in” and “Check-out” are the
-            lock-code actions; “Arriving soon” is for the arriving-soon mode.
+            Pick check-in/check-out dates and this will auto-create actions using
+            your configured times. You can remove an action or adjust the time
+            before saving.
           </div>
           <div id="modeChanges">
             <div class="mode-change">
               <div class="form-group">
-                <label>Date and Time</label>
+                <label>When</label>
                 <input type="datetime-local" class="mode-time" required />
               </div>
               <div class="form-group">
@@ -1119,10 +1142,13 @@
                   <option value="arriving_soon">Arriving soon</option>
                 </select>
               </div>
+              <button type="button" class="remove-mode-change btn-danger">
+                Remove
+              </button>
             </div>
           </div>
           <button type="button" id="addModeChange" class="btn-secondary">
-            Add Another Mode Change
+            + Add action
           </button>
           <div class="late-checkout-actions">
             <button type="submit" class="confirm-btn">Schedule Visit</button>
@@ -1140,6 +1166,7 @@
 
     <script>
       let timezone = "";
+      let currentConfig = null;
 
       function formatDate(dateString) {
         const date = new Date(dateString);
@@ -1435,7 +1462,7 @@
         newModeChange.className = "mode-change";
         newModeChange.innerHTML = `
           <div class="form-group">
-            <label>Date and Time</label>
+            <label>When</label>
             <input type="datetime-local" class="mode-time" required />
           </div>
           <div class="form-group">
@@ -1451,68 +1478,144 @@
           </button>
         `;
         modeChanges.appendChild(newModeChange);
-
-        // Add remove button functionality
-        newModeChange
-          .querySelector(".remove-mode-change")
-          .addEventListener("click", () => {
-            modeChanges.removeChild(newModeChange);
-          });
+        wireModeChangeRemoveButtons();
       });
 
-      // Add remove button functionality to initial mode change
-      const initialRemoveButton = document.createElement("button");
-      initialRemoveButton.type = "button";
-      initialRemoveButton.className = "remove-mode-change btn-danger";
-      initialRemoveButton.textContent = "Remove";
-      initialRemoveButton.addEventListener("click", () => {
+      function wireModeChangeRemoveButtons() {
         const modeChanges = document.getElementById("modeChanges");
-        if (modeChanges.children.length > 1) {
-          modeChanges.removeChild(modeChanges.firstElementChild);
-        } else {
-          alert("At least one mode change is required");
+        Array.from(modeChanges.querySelectorAll(".remove-mode-change")).forEach(
+          (btn) => {
+            if (btn.dataset.wired === "true") return;
+            btn.dataset.wired = "true";
+            btn.addEventListener("click", () => {
+              const parent = btn.closest(".mode-change");
+              if (!parent) return;
+              if (modeChanges.children.length > 1) {
+                modeChanges.removeChild(parent);
+              } else {
+                alert("At least one action is required");
+              }
+            });
+          }
+        );
+      }
+
+      const addDays = (dateStr, offsetDays) => {
+        const d = new Date(`${dateStr}T00:00`);
+        d.setDate(d.getDate() + offsetDays);
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, "0");
+        const dd = String(d.getDate()).padStart(2, "0");
+        return `${yyyy}-${mm}-${dd}`;
+      };
+
+      const combineDateAndTime = (dateStr, time12h) => {
+        const time24 = convertTo24Hour(time12h);
+        if (!dateStr || !time24) return "";
+        return `${dateStr}T${time24}`;
+      };
+
+      const buildAutoActionsFromDates = (checkinDate, checkoutDate) => {
+        const actions = [];
+        if (!currentConfig) return actions;
+
+        const arrivingSoonTime = currentConfig.arrivingSoonTime;
+        const arrivingSoonMode = currentConfig.arriving_soon_mode;
+        const arrivingSoonDayOffset =
+          currentConfig.arrivingSoonDayOffset !== undefined
+            ? parseInt(currentConfig.arrivingSoonDayOffset)
+            : 0;
+
+        if (
+          arrivingSoonMode &&
+          String(arrivingSoonMode).trim().length &&
+          arrivingSoonTime &&
+          convertTo24Hour(arrivingSoonTime)
+        ) {
+          const arrivingDate = addDays(checkinDate, arrivingSoonDayOffset || 0);
+          const when = combineDateAndTime(arrivingDate, arrivingSoonTime);
+          if (when) actions.push({ mode: "arriving_soon", time: when });
         }
-      });
-      document.querySelector(".mode-change").appendChild(initialRemoveButton);
+
+        const checkinWhen = combineDateAndTime(
+          checkinDate,
+          currentConfig.arrivalScheduleTime
+        );
+        if (checkinWhen) actions.push({ mode: "checkin", time: checkinWhen });
+
+        const checkoutWhen = combineDateAndTime(
+          checkoutDate,
+          currentConfig.departureScheduleTime
+        );
+        if (checkoutWhen) actions.push({ mode: "checkout", time: checkoutWhen });
+
+        actions.sort((a, b) => new Date(a.time) - new Date(b.time));
+        return actions;
+      };
+
+      const renderModeChanges = (actions) => {
+        const modeChanges = document.getElementById("modeChanges");
+        const rows = (actions && actions.length ? actions : [{ mode: "checkin", time: "" }])
+          .map(
+            (a) => `
+              <div class="mode-change">
+                <div class="form-group">
+                  <label>When</label>
+                  <input type="datetime-local" class="mode-time" required value="${a.time || ""}" />
+                </div>
+                <div class="form-group">
+                  <label>Action</label>
+                  <select class="mode-select" required>
+                    <option value="checkin" ${a.mode === "checkin" ? "selected" : ""}>Check-in</option>
+                    <option value="checkout" ${a.mode === "checkout" ? "selected" : ""}>Check-out</option>
+                    <option value="arriving_soon" ${a.mode === "arriving_soon" ? "selected" : ""}>Arriving soon</option>
+                  </select>
+                </div>
+                <button type="button" class="remove-mode-change btn-danger">Remove</button>
+              </div>
+            `
+          )
+          .join("");
+        modeChanges.innerHTML = rows;
+        wireModeChangeRemoveButtons();
+      };
+
+      async function ensureConfigLoaded() {
+        if (currentConfig) return;
+        const resp = await fetch("/api/config");
+        if (!resp.ok) throw new Error("Failed to load configuration");
+        currentConfig = await resp.json();
+      }
+
+      async function populateVisitActionsFromDates() {
+        const checkinDate = document.getElementById("checkinDate").value;
+        const checkoutDate = document.getElementById("checkoutDate").value;
+        if (!checkinDate || !checkoutDate) return;
+
+        if (new Date(`${checkoutDate}T00:00`) < new Date(`${checkinDate}T00:00`)) {
+          alert("Check-out date must be on/after check-in date");
+          return;
+        }
+
+        await ensureConfigLoaded();
+        const actions = buildAutoActionsFromDates(checkinDate, checkoutDate);
+        renderModeChanges(actions);
+      }
 
       function resetVisitForm() {
         document.getElementById("visitForm").reset();
-        document.getElementById("modeChanges").innerHTML = `
-          <div class="mode-change">
-            <div class="form-group">
-              <label>Date and Time</label>
-              <input type="datetime-local" class="mode-time" required />
-            </div>
-            <div class="form-group">
-              <label>Action</label>
-              <select class="mode-select" required>
-                <option value="checkin">Check-in</option>
-                <option value="checkout">Check-out</option>
-                <option value="arriving_soon">Arriving soon</option>
-              </select>
-            </div>
-          </div>
-        `;
-
-        const newInitialRemoveButton = document.createElement("button");
-        newInitialRemoveButton.type = "button";
-        newInitialRemoveButton.className = "remove-mode-change btn-danger";
-        newInitialRemoveButton.textContent = "Remove";
-        newInitialRemoveButton.addEventListener("click", () => {
-          const modeChanges = document.getElementById("modeChanges");
-          if (modeChanges.children.length > 1) {
-            modeChanges.removeChild(modeChanges.firstElementChild);
-          } else {
-            alert("At least one mode change is required");
-          }
-        });
-        document.querySelector(".mode-change").appendChild(newInitialRemoveButton);
+        renderModeChanges([]);
       }
 
-      function openAddVisitModal() {
+      async function openAddVisitModal() {
         resetVisitForm();
         const modal = document.getElementById("addVisitModal");
         modal.classList.add("active");
+        try {
+          await ensureConfigLoaded();
+        } catch {
+          // ignore; user can still add custom actions manually
+        }
         setTimeout(() => document.getElementById("visitName").focus(), 0);
       }
 
@@ -1521,17 +1624,26 @@
         modal.classList.remove("active");
       }
 
+      document
+        .getElementById("checkinDate")
+        .addEventListener("change", () => populateVisitActionsFromDates());
+      document
+        .getElementById("checkoutDate")
+        .addEventListener("change", () => populateVisitActionsFromDates());
+
       // Handle form submission
       document
         .getElementById("visitForm")
-        .addEventListener("submit", async (e) => {
-          e.preventDefault();
-          const name = document.getElementById("visitName").value;
-          const phone = document.getElementById("visitPhone").value || null;
+	        .addEventListener("submit", async (e) => {
+	          e.preventDefault();
+	          const name = document.getElementById("visitName").value;
+	          const phone = document.getElementById("visitPhone").value || null;
+	          const checkinDate = document.getElementById("checkinDate").value;
+	          const checkoutDate = document.getElementById("checkoutDate").value;
 
-          const modeChanges = Array.from(
-            document.querySelectorAll(".mode-change")
-          ).map((change) => ({
+	          const modeChanges = Array.from(
+	            document.querySelectorAll(".mode-change")
+	          ).map((change) => ({
             time: change.querySelector(".mode-time").value,
             mode: change.querySelector(".mode-select").value,
           }));
@@ -1545,12 +1657,14 @@
               headers: {
                 "Content-Type": "application/json",
               },
-              body: JSON.stringify({
-                name,
-                phone,
-                modeChanges,
-              }),
-            });
+	              body: JSON.stringify({
+	                name,
+	                phone,
+	                checkinDate,
+	                checkoutDate,
+	                modeChanges,
+	              }),
+	            });
 
             if (!response.ok) {
               throw new Error("Failed to schedule visit");
@@ -1588,6 +1702,7 @@
             );
           }
           const config = await response.json();
+          currentConfig = config;
           console.log("Loaded config:", config);
 
           if (config.ical_url !== undefined) {
