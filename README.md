@@ -1,8 +1,16 @@
-## Airbnb Lock Coder for Hubitat
+## Airbnb/Houfy Lock Coder for Hubitat
 
-This script is designed to program a lock code & set a mode on a Hubitat hub at Airbnb checkin/check out times.
+This script programs a lock code & sets a mode on a Hubitat hub based on reservation calendars (Airbnb + Houfy) and manual visits.
 
 This runs on a raspberry pi in my house on the same network as the Hubitat.
+
+## Features (high level)
+
+- Polls Airbnb and/or Houfy iCal feeds and schedules check-in / check-out actions
+- Optional “Arriving soon” action (time + day offset) for pre-arrival automation
+- Web UI for viewing upcoming items, setting configuration, and managing manual visits
+- Manual visits support (useful for direct bookings / friends & family)
+- Late check-out scheduling for an active reservation from the UI
 
 
 ## Installation & Usage
@@ -14,7 +22,29 @@ This runs on a raspberry pi in my house on the same network as the Hubitat.
 * Edit the `config/default.json` to fit your needs.  Generate a pushover.net app & user token for push notifications.
   * Set `ical_url` to your Airbnb iCal URL
   * Optionally set `houfy_ical_url` to your Houfy iCal URL
-* Run `node index.js`.  
+* Run `npm start`
+* Open the web UI at `http://localhost:3000` (or the `port` in your config file)
+
+### Running with a specific config file
+
+This project uses the `config/` folder. To use `config/motoretreat.json`, run:
+
+`NODE_ENV=motoretreat npm start`
+
+### Web UI (local server)
+
+The web UI lets you:
+
+- View all upcoming items (Airbnb, Houfy, and Manual) in one list
+- Refresh calendars on-demand
+- Edit configuration (iCal URLs, schedule times, modes, Hubitat settings, Pushover)
+- Add manual visits using check-in/check-out dates (auto-populates actions using configured times; you can adjust/remove actions before saving)
+- Schedule a late check-out for an active reservation
+
+### Houfy iCal notes
+
+- The Houfy reservation ID is extracted from the “Reservation URL” in the event description.
+- Lock codes require a “Phone Number (Last 4 Digits)” value in the iCal description; if it’s missing the event will be skipped.
 
 
 There are three new optional keys that may not be obvious.  If you want to set an "arriving soon" mode, you can use these keys.  The first is the time the mode will be enabled, the second is the offset from the check-in day.

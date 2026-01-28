@@ -1,5 +1,18 @@
 # Change Log
 
+## 2026-01-28
+
+### Added: Houfy iCal support
+
+- New config key `houfy_ical_url` (in addition to `ical_url`)
+- Houfy reservation number is extracted from the “Reservation URL” in the iCal description
+
+### Added: Web UI improvements (functional)
+
+- Combined “Upcoming” view for Airbnb, Houfy, and Manual items with a source legend
+- Manual visit creation now supports check-in/check-out dates and auto-generates actions using configured schedule times (actions can still be edited/removed before saving)
+- Added calendar refresh endpoint used by the UI to fetch iCal feeds immediately
+
 ## 2025-10-01
 
 ### Fixed: Current active code not showing for manual visits
