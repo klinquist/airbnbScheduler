@@ -10,10 +10,16 @@
         --secondary-color: #1976d2;
         --success-color: #4caf50;
         --danger-color: #f44336;
+        --danger-hover: #d32f2f;
         --text-color: #333;
         --bg-color: #f5f5f5;
         --card-bg: #ffffff;
         --border-color: #e0e0e0;
+        --input-bg: #ffffff;
+        --muted-text: #64748b;
+        --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
+        --shadow-md: 0 8px 20px rgba(0, 0, 0, 0.08);
+        --radius-md: 12px;
         --airbnb-color: #ff5a5f;
         --houfy-color: #7b1fa2;
         --manual-color: #546e7a;
@@ -28,7 +34,17 @@
       }
 
       body {
-        background-color: var(--bg-color);
+        background: radial-gradient(
+            1200px 600px at 10% 0%,
+            rgba(33, 150, 243, 0.12),
+            transparent 60%
+          ),
+          radial-gradient(
+            1000px 500px at 90% 10%,
+            rgba(76, 175, 80, 0.12),
+            transparent 55%
+          ),
+          var(--bg-color);
         color: var(--text-color);
         line-height: 1.6;
         padding: 20px;
@@ -51,12 +67,14 @@
         color: var(--primary-color);
         font-size: 2em;
         font-weight: 600;
+        letter-spacing: -0.02em;
       }
 
       .header-controls {
         display: flex;
         align-items: center;
         gap: 15px;
+        flex-wrap: wrap;
       }
 
       .mode-selector {
@@ -144,6 +162,56 @@
         background-color: var(--secondary-color);
       }
 
+      .btn-secondary {
+        background: #eef2f7;
+        color: #0f172a;
+        border: 1px solid #dbe3ef;
+        padding: 10px 14px;
+        border-radius: 10px;
+        cursor: pointer;
+        font-size: 0.95em;
+        transition: background-color 0.2s ease, border-color 0.2s ease;
+      }
+
+      .btn-secondary:hover {
+        background: #e6ecf5;
+        border-color: #cdd8ea;
+      }
+
+      .btn-primary {
+        background: linear-gradient(180deg, #2e9df7, var(--primary-color));
+        color: white;
+        border: 1px solid rgba(0, 0, 0, 0.06);
+        padding: 10px 14px;
+        border-radius: 10px;
+        cursor: pointer;
+        font-size: 0.95em;
+        transition: filter 0.2s ease, transform 0.08s ease;
+      }
+
+      .btn-primary:hover {
+        filter: brightness(0.98);
+      }
+
+      .btn-primary:active {
+        transform: translateY(1px);
+      }
+
+      .btn-danger {
+        background: var(--danger-color);
+        color: white;
+        border: none;
+        padding: 10px 14px;
+        border-radius: 10px;
+        cursor: pointer;
+        font-size: 0.95em;
+        transition: background-color 0.2s ease;
+      }
+
+      .btn-danger:hover {
+        background: var(--danger-hover);
+      }
+
       .add-visit-btn {
         background-color: var(--success-color);
         color: white;
@@ -164,16 +232,17 @@
 
       .section {
         background: var(--card-bg);
-        border-radius: 10px;
+        border-radius: var(--radius-md);
         padding: 25px;
         margin-bottom: 25px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        box-shadow: var(--shadow-sm);
+        border: 1px solid rgba(0, 0, 0, 0.04);
         transition: transform 0.2s ease, box-shadow 0.2s ease;
       }
 
       .section:hover {
         transform: translateY(-2px);
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        box-shadow: var(--shadow-md);
       }
 
       .section h2 {
@@ -252,10 +321,12 @@
       }
 
       .reservation-item {
-        background: #f8f9fa;
+        background: rgba(255, 255, 255, 0.75);
         padding: 15px;
-        border-radius: 8px;
+        border-radius: 14px;
+        border: 1px solid rgba(0, 0, 0, 0.04);
         border-left: 4px solid var(--primary-color);
+        box-shadow: var(--shadow-sm);
       }
 
       .reservation-item.type-airbnb {
@@ -332,10 +403,11 @@
       .form-group select {
         width: 100%;
         padding: 10px;
-        border: 1px solid var(--border-color);
-        border-radius: 5px;
+        border: 1px solid #dbe3ef;
+        border-radius: 10px;
         font-size: 1em;
         transition: border-color 0.3s ease;
+        background: var(--input-bg);
       }
 
       .form-group input:focus,
@@ -343,6 +415,13 @@
         outline: none;
         border-color: var(--primary-color);
         box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.1);
+      }
+
+      .helper-text {
+        margin-top: -12px;
+        margin-bottom: 16px;
+        color: var(--muted-text);
+        font-size: 0.92em;
       }
 
       .submit-btn {
@@ -383,23 +462,21 @@
       }
 
       .mode-change {
-        background: var(--card-bg);
-        padding: 1rem;
-        border-radius: 8px;
-        margin-bottom: 1rem;
-        position: relative;
-        display: flex;
-        align-items: center;
-        gap: 1rem;
+        background: rgba(255, 255, 255, 0.75);
+        padding: 12px;
+        border-radius: 14px;
+        margin-bottom: 12px;
+        border: 1px solid rgba(0, 0, 0, 0.04);
+        box-shadow: var(--shadow-sm);
+        display: grid;
+        grid-template-columns: 1fr 220px auto;
+        gap: 12px;
+        align-items: end;
       }
 
       .mode-change .form-group {
         margin-bottom: 0;
-        flex: 1;
-      }
-
-      .mode-change .form-group:last-child {
-        flex: 0 0 200px;
+        min-width: 0;
       }
 
       .mode-change label {
@@ -413,23 +490,17 @@
       .mode-change select {
         width: 100%;
         padding: 0.5rem;
-        border: 1px solid var(--border-color);
-        border-radius: 4px;
-        background: var(--input-bg);
+        border: 1px solid #dbe3ef;
+        border-radius: 10px;
+        background: var(--card-bg);
         color: var(--text-color);
       }
 
       .remove-mode-change {
-        position: absolute;
-        top: 0.5rem;
-        right: 0.5rem;
-        padding: 0.25rem 0.5rem;
-        font-size: 0.875rem;
-        background: var(--danger-color);
-        color: white;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
+        height: 38px;
+        padding: 0 12px;
+        border-radius: 10px;
+        white-space: nowrap;
       }
 
       .remove-mode-change:hover {
@@ -443,11 +514,13 @@
         font-size: 1rem;
       }
 
-      #visitForm button[type="submit"] {
-        width: 100%;
-        padding: 0.75rem;
-        font-size: 1rem;
-        margin-top: 1rem;
+      @media (max-width: 640px) {
+        .mode-change {
+          grid-template-columns: 1fr;
+        }
+        .remove-mode-change {
+          width: 100%;
+        }
       }
 
       .add-mode-btn {
@@ -570,15 +643,14 @@
           font-size: 16px; /* Prevents zoom on iOS */
         }
 
-        .mode-change {
-          flex-direction: column;
-          gap: 10px;
-        }
+	        .mode-change {
+	          grid-template-columns: 1fr;
+	          gap: 10px;
+	        }
 
-        .mode-change .form-group:last-child {
-          flex: 1;
-          width: 100%;
-        }
+	        .remove-mode-change {
+	          width: 100%;
+	        }
 
         .config-grid {
           grid-template-columns: 1fr;
@@ -643,8 +715,6 @@
         font-size: 16px; /* Prevents zoom on iOS */
         -webkit-appearance: none;
         appearance: none;
-        border-radius: 4px;
-        padding: 8px 12px;
       }
 
       /* Add visual feedback for touch interactions */
@@ -682,7 +752,7 @@
         color: white;
         border: none;
         padding: 8px 16px;
-        border-radius: 5px;
+        border-radius: 10px;
         cursor: pointer;
         font-size: 0.9em;
         transition: background-color 0.3s ease;
@@ -713,7 +783,7 @@
       .late-checkout-content {
         background: var(--card-bg);
         padding: 20px;
-        border-radius: 8px;
+        border-radius: var(--radius-md);
         width: 90%;
         max-width: 400px;
       }
@@ -733,7 +803,7 @@
         flex: 1;
         padding: 10px;
         border: none;
-        border-radius: 5px;
+        border-radius: 10px;
         cursor: pointer;
         font-size: 1em;
       }
@@ -1024,12 +1094,16 @@
             <input type="text" id="visitName" required />
           </div>
           <div class="form-group">
-            <label for="visitPhone">Phone Number (optional):</label>
+            <label for="visitPhone">Lock Code (optional)</label>
             <input
               type="tel"
               id="visitPhone"
-              placeholder="Leave blank to skip lock coding"
+              placeholder="e.g. 0888 (last 4 digits)"
             />
+          </div>
+          <div class="helper-text">
+            Add up to 3 scheduled actions. “Check-in” and “Check-out” are the
+            lock-code actions; “Arriving soon” is for the arriving-soon mode.
           </div>
           <div id="modeChanges">
             <div class="mode-change">
@@ -1038,11 +1112,11 @@
                 <input type="datetime-local" class="mode-time" required />
               </div>
               <div class="form-group">
-                <label>Mode</label>
+                <label>Action</label>
                 <select class="mode-select" required>
-                  <option value="checkin">Check-in Mode</option>
-                  <option value="checkout">Check-out Mode</option>
-                  <option value="arriving_soon">Arriving Soon Mode</option>
+                  <option value="checkin">Check-in</option>
+                  <option value="checkout">Check-out</option>
+                  <option value="arriving_soon">Arriving soon</option>
                 </select>
               </div>
             </div>
@@ -1139,9 +1213,11 @@
       }
 
       function formatModeDisplay(mode) {
-        return String(mode || "")
-          .replace("_", " ")
-          .replace(/\b\w/g, (l) => l.toUpperCase());
+        const m = String(mode || "");
+        if (m === "checkin") return "Check-in";
+        if (m === "checkout") return "Check-out";
+        if (m === "arriving_soon") return "Arriving soon";
+        return m.replace("_", " ").replace(/\b\w/g, (l) => l.toUpperCase());
       }
 
       function normalizePlatform(platform) {
@@ -1363,14 +1439,16 @@
             <input type="datetime-local" class="mode-time" required />
           </div>
           <div class="form-group">
-            <label>Mode</label>
+            <label>Action</label>
             <select class="mode-select" required>
-              <option value="checkin">Check-in Mode</option>
-              <option value="checkout">Check-out Mode</option>
-              <option value="arriving_soon">Arriving Soon Mode</option>
+              <option value="checkin">Check-in</option>
+              <option value="checkout">Check-out</option>
+              <option value="arriving_soon">Arriving soon</option>
             </select>
           </div>
-          <button type="button" class="remove-mode-change btn-secondary">Remove</button>
+          <button type="button" class="remove-mode-change btn-danger">
+            Remove
+          </button>
         `;
         modeChanges.appendChild(newModeChange);
 
@@ -1385,7 +1463,7 @@
       // Add remove button functionality to initial mode change
       const initialRemoveButton = document.createElement("button");
       initialRemoveButton.type = "button";
-      initialRemoveButton.className = "remove-mode-change btn-secondary";
+      initialRemoveButton.className = "remove-mode-change btn-danger";
       initialRemoveButton.textContent = "Remove";
       initialRemoveButton.addEventListener("click", () => {
         const modeChanges = document.getElementById("modeChanges");
@@ -1406,11 +1484,11 @@
               <input type="datetime-local" class="mode-time" required />
             </div>
             <div class="form-group">
-              <label>Mode</label>
+              <label>Action</label>
               <select class="mode-select" required>
-                <option value="checkin">Check-in Mode</option>
-                <option value="checkout">Check-out Mode</option>
-                <option value="arriving_soon">Arriving Soon Mode</option>
+                <option value="checkin">Check-in</option>
+                <option value="checkout">Check-out</option>
+                <option value="arriving_soon">Arriving soon</option>
               </select>
             </div>
           </div>
@@ -1418,7 +1496,7 @@
 
         const newInitialRemoveButton = document.createElement("button");
         newInitialRemoveButton.type = "button";
-        newInitialRemoveButton.className = "remove-mode-change btn-secondary";
+        newInitialRemoveButton.className = "remove-mode-change btn-danger";
         newInitialRemoveButton.textContent = "Remove";
         newInitialRemoveButton.addEventListener("click", () => {
           const modeChanges = document.getElementById("modeChanges");
