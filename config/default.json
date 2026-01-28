@@ -1,5 +1,6 @@
 {
     "ical_url": "https://www.airbnb.com/calendar/ical/XXXXXX.ics?s=XXXXX",
+    "houfy_ical_url": "",
     "arrivalScheduleTime": "10:00 AM",
     "departureScheduleTime": "3:00 PM",
     "timezone": "America/Los_Angeles",

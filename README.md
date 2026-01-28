@@ -12,6 +12,8 @@ This runs on a raspberry pi in my house on the same network as the Hubitat.
 * Git clone this repo to a folder 
 * Enter that folder and run `npm install`
 * Edit the `config/default.json` to fit your needs.  Generate a pushover.net app & user token for push notifications.
+  * Set `ical_url` to your Airbnb iCal URL
+  * Optionally set `houfy_ical_url` to your Houfy iCal URL
 * Run `node index.js`.  
 
 

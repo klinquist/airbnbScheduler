@@ -778,6 +778,18 @@
           <form id="configForm" onsubmit="saveConfig(event)">
             <div class="config-grid">
               <div class="config-section">
+                <h3>Calendar URLs</h3>
+                <div class="form-group">
+                  <label for="ical_url">Airbnb iCal URL</label>
+                  <input type="url" id="ical_url" required />
+                </div>
+                <div class="form-group">
+                  <label for="houfy_ical_url">Houfy iCal URL (optional)</label>
+                  <input type="url" id="houfy_ical_url" />
+                </div>
+              </div>
+
+              <div class="config-section">
                 <h3>Schedule Times</h3>
                 <div class="form-group">
                   <label for="arrivalScheduleTime">Arrival Time</label>
@@ -938,6 +950,13 @@
       async function refreshData() {
         try {
           console.log("Refreshing data...");
+          // Pull latest reservations from configured iCal feeds
+          const refreshResp = await fetch("/api/schedules/refresh", {
+            method: "POST",
+          });
+          if (!refreshResp.ok) {
+            console.warn("Schedule refresh failed:", await refreshResp.text());
+          }
           await Promise.all([
             loadConfig(),
             loadSchedules(),
@@ -1274,6 +1293,14 @@
           const config = await response.json();
           console.log("Loaded config:", config);
 
+          if (config.ical_url !== undefined) {
+            document.getElementById("ical_url").value = config.ical_url || "";
+          }
+          if (config.houfy_ical_url !== undefined) {
+            document.getElementById("houfy_ical_url").value =
+              config.houfy_ical_url || "";
+          }
+
           // Convert times to 24-hour format for time inputs
           if (config.arrivalScheduleTime) {
             document.getElementById("arrivalScheduleTime").value =
@@ -1389,6 +1416,32 @@
       async function saveConfig(event) {
         event.preventDefault();
 
+        const airbnbIcalUrl = document.getElementById("ical_url").value.trim();
+        const houfyIcalUrl = document
+          .getElementById("houfy_ical_url")
+          .value.trim();
+
+        if (!airbnbIcalUrl) {
+          alert("Please enter your Airbnb iCal URL");
+          return;
+        }
+
+        try {
+          new URL(airbnbIcalUrl);
+        } catch {
+          alert("Airbnb iCal URL must be a valid URL");
+          return;
+        }
+
+        if (houfyIcalUrl) {
+          try {
+            new URL(houfyIcalUrl);
+          } catch {
+            alert("Houfy iCal URL must be a valid URL");
+            return;
+          }
+        }
+
         // Validate time inputs
         const arrivalTime = document.getElementById(
           "arrivalScheduleTime"
@@ -1405,6 +1458,8 @@
         }
 
         const config = {
+          ical_url: airbnbIcalUrl,
+          houfy_ical_url: houfyIcalUrl,
           arrivalScheduleTime: convertTo12Hour(arrivalTime),
           departureScheduleTime: convertTo12Hour(departureTime),
           arrivingSoonTime: convertTo12Hour(arrivingSoonTime),

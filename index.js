@@ -313,36 +313,122 @@ const convertStrToDate = (str) => {
   };
 };
 
+const getNonEmptyConfigString = (key) => {
+  if (!config.has(key)) return null;
+  const value = config.get(key);
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length ? trimmed : null;
+};
+
+const normalizeIcalDescription = (description) => {
+  if (typeof description !== "string") return "";
+  // Some feeds encode newlines as the two characters "\n"
+  return description.replace(/\\n/g, "\n");
+};
+
+const extractPhoneLast4FromDescription = (description) => {
+  const normalized = normalizeIcalDescription(description);
+  const labeled = normalized.match(
+    /Phone Number\s*\(Last 4 Digits\)\s*:\s*([0-9]{4})/i
+  );
+  if (labeled && labeled[1]) return labeled[1];
+
+  const looseLabeled = normalized.match(/Last 4 Digits[^0-9]*([0-9]{4})/i);
+  if (looseLabeled && looseLabeled[1]) return looseLabeled[1];
+
+  return null;
+};
+
+const extractHoufyReservationNumber = (event) => {
+  const description = normalizeIcalDescription(event?.description);
+  const urlMatch = description.match(/houfy\.com\/reservation\/([A-Za-z0-9]+)/i);
+  if (urlMatch && urlMatch[1]) return urlMatch[1];
+
+  // Some feeds also embed the reservation id in the UID (e.g. "1-ABC123...")
+  const uid = typeof event?.uid === "string" ? event.uid : "";
+  const uidMatch = uid.match(/-([A-Za-z0-9]+)$/);
+  if (uidMatch && uidMatch[1]) return uidMatch[1];
+
+  return null;
+};
+
+const extractAirbnbReservationNumber = (event) => {
+  const description = normalizeIcalDescription(event?.description);
+  const match = description.match(/([A-Z0-9]{9,})/g);
+  if (match && match[0]) return match[0];
+  return null;
+};
+
+const extractReservationNumberFromEvent = (event) => {
+  if (event?.platform === "houfy") return extractHoufyReservationNumber(event);
+  return extractAirbnbReservationNumber(event);
+};
+
+const parseIcalUrl = async (url, platform) => {
+  const resp = await axios.get(url);
+  if (!resp || typeof resp.data === "undefined") {
+    throw new Error("No iCal data found");
+  }
+
+  const data = ical.parseICS(resp.data);
+  if (!data || Object.keys(data).length === 0) return [];
+
+  const events = [];
+  for (const k in data) {
+    if (!Object.prototype.hasOwnProperty.call(data, k)) continue;
+    const ev = data[k];
+    if (!ev || !ev.start || !ev.end || !ev.summary) continue;
+
+    if (platform === "airbnb" && ev.summary === "Airbnb (Not available)") {
+      continue;
+    }
+
+    if (platform === "houfy" && !/^Booked\b/i.test(String(ev.summary))) {
+      continue;
+    }
+
+    events.push({ ...ev, platform });
+  }
+
+  return events;
+};
+
 const getiCalEvents = async () => {
   const events = [];
 
-  const airbnb_ical = await axios.get(config.get("ical_url")).catch((err) => {
-    return log.error(`Error getting iCal: ${err}`);
-  });
+  const sources = [];
+  const airbnbUrl =
+    getNonEmptyConfigString("airbnb_ical_url") ||
+    getNonEmptyConfigString("ical_url");
+  const houfyUrl = getNonEmptyConfigString("houfy_ical_url");
 
-  if (!airbnb_ical || typeof airbnb_ical.data == "undefined") {
-    return log.error("No iCal data found");
+  if (airbnbUrl) sources.push({ platform: "airbnb", url: airbnbUrl });
+  if (houfyUrl) sources.push({ platform: "houfy", url: houfyUrl });
+
+  if (sources.length === 0) {
+    log.error(
+      "No iCal URLs configured. Set ical_url (Airbnb) and/or houfy_ical_url."
+    );
+    return events;
   }
 
-  let data = ical.parseICS(airbnb_ical.data);
-
-  if (!data || Object.keys(data) == 0) {
-    return log.debug("No reservations found");
-  }
-  for (const k in data) {
-    if (data.hasOwnProperty(k)) {
-      var ev = data[k];
-      if (
-        ev &&
-        ev.start &&
-        ev.summary &&
-        ev.summary !== "Airbnb (Not available)"
-      ) {
-        events.push(ev);
-      }
+  for (const source of sources) {
+    try {
+      const sourceEvents = await parseIcalUrl(source.url, source.platform);
+      log.debug(
+        `Found ${sourceEvents.length} upcoming reservations in ${source.platform} calendar.`
+      );
+      events.push(...sourceEvents);
+    } catch (err) {
+      log.error(`Error getting ${source.platform} iCal: ${err.message || err}`);
     }
   }
-  log.debug(`Found ${events.length} upcoming reservations in airbnb calendar.`);
+
+  if (events.length === 0) {
+    log.debug("No reservations found");
+  }
+
   return events;
 };
 
@@ -857,7 +943,15 @@ const getSchedules = async (firstRun) => {
       timeEnd.min,
       timeEnd.sec
     );
-    const reservationNumber = events[i].description.match(/([A-Z0-9]{9,})/g)[0];
+    const reservationNumber = extractReservationNumberFromEvent(events[i]);
+    if (!reservationNumber) {
+      log.error(
+        `Could not extract reservation number from ${
+          events[i].platform || "unknown"
+        } event: ${events[i].summary || "(no summary)"}`
+      );
+      continue;
+    }
 
     // Apply late checkout if it exists
     if (lateCheckouts[reservationNumber]) {
@@ -876,7 +970,15 @@ const getSchedules = async (firstRun) => {
       }
     }
 
-    const phoneNumber = events[i].description.match(/\s([0-9]{4})/)[1];
+    const phoneNumber = extractPhoneLast4FromDescription(events[i].description);
+    if (!phoneNumber) {
+      log.error(
+        `Could not extract phone number last 4 digits for reservation ${reservationNumber} (${
+          events[i].platform || "unknown"
+        })`
+      );
+      continue;
+    }
 
     let arrivingSoonStart, arrivingSoonDate;
     if (config.get("arrivingSoonTime")) {
@@ -1073,6 +1175,20 @@ app.get("/api/schedules", (req, res) => {
   res.json(cleanSchedules);
 });
 
+// Force a schedule refresh (fetch iCal feeds now)
+app.post("/api/schedules/refresh", async (req, res) => {
+  try {
+    await getSchedules();
+    res.json({ success: true });
+  } catch (error) {
+    log.error(`Error refreshing schedules: ${error.message}`);
+    res.status(500).json({
+      error: "Failed to refresh schedules",
+      message: error.message,
+    });
+  }
+});
+
 // Get current active code
 app.get("/api/current-code", async (req, res) => {
   try {
@@ -1188,6 +1304,10 @@ app.get("/api/config", async (req, res) => {
   try {
     log.debug("Loading configuration...");
     const configData = {
+      ical_url: config.has("ical_url") ? config.get("ical_url") : "",
+      houfy_ical_url: config.has("houfy_ical_url")
+        ? config.get("houfy_ical_url")
+        : "",
       arrivalScheduleTime: config.get("arrivalScheduleTime"),
       departureScheduleTime: config.get("departureScheduleTime"),
       arrivingSoonTime: config.get("arrivingSoonTime"),
@@ -1228,6 +1348,8 @@ app.post("/api/config", async (req, res) => {
 
     // Update only the allowed fields
     const allowedFields = [
+      "ical_url",
+      "houfy_ical_url",
       "arrivalScheduleTime",
       "departureScheduleTime",
       "arrivingSoonTime",
