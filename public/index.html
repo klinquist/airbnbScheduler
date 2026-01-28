@@ -1498,7 +1498,16 @@
             alert("Configuration saved successfully");
             loadConfig(); // Reload to ensure we have the latest values
           } else {
-            alert("Failed to save configuration");
+            let message = "Failed to save configuration";
+            try {
+              const errorData = await response.json();
+              if (errorData && (errorData.details || errorData.message)) {
+                message = `${message}: ${errorData.details || errorData.message}`;
+              }
+            } catch {
+              // ignore json parse errors
+            }
+            alert(message);
           }
         } catch (error) {
           console.log("Error saving config:", error);

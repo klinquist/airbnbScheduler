@@ -90,16 +90,18 @@ const log = {
   },
 };
 
-let LOCK_CODE_SLOT = config.get("lock_code_slot");
-if (typeof LOCK_CODE_SLOT == "number") {
-  LOCK_CODE_SLOT = LOCK_CODE_SLOT.toString();
-}
-const HUBITAT_IP = config.get("hubitat_ip");
-const HUBITAT_ACCESS_TOKEN = config.get("hubitat_maker_api_access_token");
-const locksToCode = config.get("locks_to_code");
+const getLockCodeSlot = () => {
+  let slot = config.get("lock_code_slot");
+  if (typeof slot === "number") {
+    slot = slot.toString();
+  }
+  return slot;
+};
 
 const getHubitatUrl = (path) => {
-  return `http://${HUBITAT_IP}/apps/api/9/${path}?access_token=${HUBITAT_ACCESS_TOKEN}`;
+  const hubitatIp = config.get("hubitat_ip");
+  const hubitatAccessToken = config.get("hubitat_maker_api_access_token");
+  return `http://${hubitatIp}/apps/api/9/${path}?access_token=${hubitatAccessToken}`;
 };
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -192,9 +194,14 @@ const setLockCode = async (phoneNumber, reservationNumber) => {
     throw new Error(`Error getting list of devices: ${e.message}`);
   }
 
+  const locksToCode = config.get("locks_to_code");
   locks = locks.data.filter((n) => locksToCode.includes(n.label));
 
-  let lockCodeBody = [LOCK_CODE_SLOT, phoneNumber, reservationNumber].join(",");
+  let lockCodeBody = [
+    getLockCodeSlot(),
+    phoneNumber,
+    reservationNumber,
+  ].join(",");
 
   const serialLoopFlow = async (locks) => {
     for (const lock in locks) {
@@ -240,7 +247,8 @@ const setLockWithRetry = async (lock, lockCodeBody, phoneNumber) => {
         log.error(`Error parsing lock codes: ${e}`);
         return bail();
       }
-      attrib = attrib[LOCK_CODE_SLOT] && attrib[LOCK_CODE_SLOT].code;
+      const slot = getLockCodeSlot();
+      attrib = attrib[slot] && attrib[slot].code;
       if (attrib !== phoneNumber) {
         log.error(
           `Lock code not set correctly on lock ${lock.name}, retrying a total of 3x`
@@ -264,6 +272,7 @@ const removeLockCode = async (phoneNumber) => {
     throw new Error(`Error getting list of devices ${e}`);
   }
 
+  const locksToCode = config.get("locks_to_code");
   locks = locks.data.filter((n) => {
     return locksToCode.includes(n.label);
   });
@@ -273,7 +282,7 @@ const removeLockCode = async (phoneNumber) => {
       await axios
         .get(
           getHubitatUrl(
-            `devices/${locks[lock].id}/deleteCode/${LOCK_CODE_SLOT}`
+            `devices/${locks[lock].id}/deleteCode/${getLockCodeSlot()}`
           )
         )
         .then(() => {
@@ -1375,8 +1384,14 @@ app.post("/api/config", async (req, res) => {
     // Write back to the config file
     await writeFileAsync(configPath, JSON.stringify(currentConfig, null, 4));
 
-    // Reload the config
-    config.reload();
+    // Apply updated values to the in-memory config (node-config doesn't expose config.reload())
+    allowedFields.forEach((field) => {
+      if (field === "pushover") {
+        config.pushover = currentConfig.pushover;
+      } else if (currentConfig[field] !== undefined) {
+        config[field] = currentConfig[field];
+      }
+    });
 
     res.json({ message: "Configuration updated successfully" });
   } catch (error) {
