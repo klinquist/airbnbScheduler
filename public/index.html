@@ -14,6 +14,9 @@
         --bg-color: #f5f5f5;
         --card-bg: #ffffff;
         --border-color: #e0e0e0;
+        --airbnb-color: #ff5a5f;
+        --houfy-color: #7b1fa2;
+        --manual-color: #546e7a;
       }
 
       * {
@@ -237,11 +240,55 @@
         border-left: 4px solid var(--primary-color);
       }
 
+      .reservation-item.type-airbnb {
+        border-left-color: var(--airbnb-color);
+      }
+
+      .reservation-item.type-houfy {
+        border-left-color: var(--houfy-color);
+      }
+
+      .reservation-item.type-manual {
+        border-left-color: var(--manual-color);
+      }
+
       .reservation-item.active {
-        border-left-color: var(--success-color);
         background: #e8f5e9;
       }
 
+      .type-legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.9em;
+        color: #666;
+      }
+
+      .legend-swatch {
+        width: 12px;
+        height: 12px;
+        border-radius: 3px;
+        display: inline-block;
+      }
+
+      .legend-swatch.airbnb {
+        background: var(--airbnb-color);
+      }
+
+      .legend-swatch.houfy {
+        background: var(--houfy-color);
+      }
+
+      .legend-swatch.manual {
+        background: var(--manual-color);
+      }
       .reservation-item h3 {
         margin-bottom: 8px;
         color: var(--primary-color);
@@ -716,25 +763,29 @@
 
       <div class="section">
         <div class="tabs">
-          <button class="tab-btn active" onclick="switchTab('airbnb')">
-            Airbnb Reservations
-          </button>
-          <button class="tab-btn" onclick="switchTab('visits')">
-            Manual Visits
+          <button class="tab-btn active" onclick="switchTab('upcoming')">
+            Upcoming
           </button>
           <button class="tab-btn" onclick="switchTab('config')">
             Configuration
           </button>
         </div>
 
-        <div id="airbnb" class="tab-content active">
-          <div class="reservation-list" id="reservationList">
-            Loading reservations...
+        <div id="upcoming" class="tab-content active">
+          <div class="type-legend" aria-label="Calendar source legend">
+            <div class="legend-item">
+              <span class="legend-swatch airbnb"></span> Airbnb
+            </div>
+            <div class="legend-item">
+              <span class="legend-swatch houfy"></span> Houfy
+            </div>
+            <div class="legend-item">
+              <span class="legend-swatch manual"></span> Manual
+            </div>
           </div>
-        </div>
-
-        <div id="visits" class="tab-content">
-          <div class="reservation-list" id="visitList">Loading visits...</div>
+          <div class="reservation-list" id="upcomingList">
+            Loading upcoming...
+          </div>
           <div class="card">
             <h2>Add Manual Visit</h2>
             <form id="visitForm">
@@ -959,8 +1010,7 @@
           }
           await Promise.all([
             loadConfig(),
-            loadSchedules(),
-            loadVisits(),
+            loadUpcoming(),
             loadCurrentCode(),
           ]);
           console.log("Data refresh complete");
@@ -990,142 +1040,190 @@
         }
       }
 
-      async function loadSchedules() {
-        try {
-          const response = await fetch("/api/schedules");
-          if (!response.ok) {
-            throw new Error("Failed to load schedules");
-          }
-          const schedules = await response.json();
-          console.log("Loaded schedules:", schedules);
-          const schedulesDiv = document.getElementById("reservationList");
-          if (Object.keys(schedules).length === 0) {
-            schedulesDiv.innerHTML = "<div>No upcoming reservations</div>";
-            return;
-          }
-
-          const now = new Date();
-          // Sort reservations by arrival date (soonest first)
-          const sortedSchedules = Object.entries(schedules).sort(
-            ([, scheduleA], [, scheduleB]) => {
-              const arrivalA = new Date(scheduleA.start);
-              const arrivalB = new Date(scheduleB.start);
-              return arrivalA - arrivalB;
-            }
-          );
-
-          const scheduleHtml = sortedSchedules
-            .map(([reservationNumber, schedule]) => {
-              const isActive =
-                new Date(schedule.start) <= now &&
-                new Date(schedule.end) >= now;
-              const isFuture = new Date(schedule.end) > now;
-
-              // Create an array of all schedule items with their dates
-              const scheduleItems = [
-                {
-                  type: "arriving",
-                  date: schedule.arriving,
-                  label: "Arriving Soon",
-                },
-                {
-                  type: "start",
-                  date: schedule.start,
-                  label: "Check-in",
-                },
-                {
-                  type: "end",
-                  date: schedule.end,
-                  label: "Check-out",
-                },
-              ].filter((item) => item.date); // Remove any undefined dates
-
-              // Sort by date
-              scheduleItems.sort((a, b) => new Date(a.date) - new Date(b.date));
-
-              return `
-                <div class="reservation-item ${isActive ? "active" : ""}">
-                  <div><strong>Reservation:</strong> ${reservationNumber}</div>
-                  <div><strong>Code:</strong> ${schedule.phoneNumber}</div>
-                  ${scheduleItems
-                    .map(
-                      (item) =>
-                        `<div><strong>${item.label}:</strong> ${formatDate(
-                          item.date
-                        )}</div>`
-                    )
-                    .join("")}
-                  ${
-                    isActive && isFuture
-                      ? `<button class="late-checkout-btn" onclick="openLateCheckoutModal('${reservationNumber}', '${schedule.end}')">
-                          Schedule Late Check-out
-                      </button>`
-                      : ""
-                  }
-                </div>
-              `;
-            })
-            .join("");
-          schedulesDiv.innerHTML = scheduleHtml;
-        } catch (error) {
-          console.log("Error loading schedules:", error);
-          alert("Failed to load schedules");
-        }
+      function formatModeDisplay(mode) {
+        return String(mode || "")
+          .replace("_", " ")
+          .replace(/\b\w/g, (l) => l.toUpperCase());
       }
 
-      async function loadVisits() {
+      function normalizePlatform(platform) {
+        const p = String(platform || "airbnb").toLowerCase();
+        if (p === "houfy") return "houfy";
+        if (p === "manual") return "manual";
+        return "airbnb";
+      }
+
+      function getVisitSortDate(visit) {
+        if (visit?.modeChanges?.length) {
+          const times = visit.modeChanges
+            .map((c) => new Date(c.time))
+            .filter((d) => !isNaN(d.getTime()))
+            .sort((a, b) => a - b);
+          if (times.length) return times[0];
+        }
+        if (visit?.date) {
+          const d = new Date(visit.date);
+          if (!isNaN(d.getTime())) return d;
+        }
+        return null;
+      }
+
+      function getManualActiveWindow(visit) {
+        const now = new Date();
+        const changes = Array.isArray(visit?.modeChanges) ? visit.modeChanges : [];
+        const checkins = changes
+          .filter((c) => c.mode === "checkin")
+          .map((c) => new Date(c.time))
+          .filter((d) => !isNaN(d.getTime()))
+          .sort((a, b) => a - b);
+        const checkouts = changes
+          .filter((c) => c.mode === "checkout")
+          .map((c) => new Date(c.time))
+          .filter((d) => !isNaN(d.getTime()))
+          .sort((a, b) => a - b);
+
+        const checkin = checkins.length ? checkins[0] : null;
+        const checkout = checkouts.length ? checkouts[checkouts.length - 1] : null;
+        const isActive =
+          checkin && checkout && checkin <= now && checkout >= now;
+        return { checkin, checkout, isActive };
+      }
+
+      function renderScheduleItem(reservationNumber, schedule) {
+        const now = new Date();
+        const isActive =
+          new Date(schedule.start) <= now && new Date(schedule.end) >= now;
+        const isFuture = new Date(schedule.end) > now;
+        const platform = normalizePlatform(schedule.platform);
+        const platformLabel =
+          platform === "houfy" ? "Houfy" : platform === "manual" ? "Manual" : "Airbnb";
+
+        const scheduleItems = [
+          {
+            type: "arriving",
+            date: schedule.arriving,
+            label: "Arriving Soon",
+          },
+          {
+            type: "start",
+            date: schedule.start,
+            label: "Check-in",
+          },
+          {
+            type: "end",
+            date: schedule.end,
+            label: "Check-out",
+          },
+        ].filter((item) => item.date);
+
+        scheduleItems.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+        return `
+          <div class="reservation-item type-${platform} ${isActive ? "active" : ""}">
+            <div><strong>${platformLabel} Reservation:</strong> ${reservationNumber}</div>
+            <div><strong>Code:</strong> ${schedule.phoneNumber}</div>
+            ${scheduleItems
+              .map(
+                (item) =>
+                  `<div><strong>${item.label}:</strong> ${formatDate(
+                    item.date
+                  )}</div>`
+              )
+              .join("")}
+            ${
+              isActive && isFuture
+                ? `<button class="late-checkout-btn" onclick="openLateCheckoutModal('${reservationNumber}', '${schedule.end}')">
+                    Schedule Late Check-out
+                  </button>`
+                : ""
+            }
+          </div>
+        `;
+      }
+
+      function renderVisitItem(visit) {
+        const { isActive } = getManualActiveWindow(visit);
+        const modeChanges = Array.isArray(visit.modeChanges) ? visit.modeChanges : [];
+        const sortedChanges = modeChanges
+          .slice()
+          .sort((a, b) => new Date(a.time) - new Date(b.time));
+
+        return `
+          <div class="reservation-item type-manual ${isActive ? "active" : ""}">
+            <div><strong>Manual Visit:</strong> ${visit.name || "(no name)"}</div>
+            ${
+              visit.phone
+                ? `<div><strong>Code:</strong> ${visit.phone}</div>`
+                : `<div><strong>Code:</strong> (none)</div>`
+            }
+            <div><strong>Mode Changes:</strong></div>
+            <ul>
+              ${sortedChanges
+                .map(
+                  (change) => `
+                <li>${formatDate(change.time)} - ${formatModeDisplay(
+                    change.mode
+                  )}</li>
+              `
+                )
+                .join("")}
+            </ul>
+            <button class="delete-btn" onclick="deleteVisit('${visit.id}')">Delete</button>
+          </div>
+        `;
+      }
+
+      async function loadUpcoming() {
         try {
-          const response = await fetch("/api/visits");
-          if (!response.ok) {
-            throw new Error("Failed to load visits");
-          }
-          const visits = await response.json();
+          const [schedulesResp, visitsResp] = await Promise.all([
+            fetch("/api/schedules"),
+            fetch("/api/visits"),
+          ]);
+          if (!schedulesResp.ok) throw new Error("Failed to load schedules");
+          if (!visitsResp.ok) throw new Error("Failed to load visits");
+
+          const schedules = await schedulesResp.json();
+          const visits = await visitsResp.json();
+          console.log("Loaded schedules:", schedules);
           console.log("Loaded visits:", visits);
-          const visitsDiv = document.getElementById("visitList");
-          if (visits.length === 0) {
-            visitsDiv.innerHTML = "<div>No manual visits scheduled</div>";
+
+          const upcomingDiv = document.getElementById("upcomingList");
+
+          const items = [];
+          Object.entries(schedules || {}).forEach(([reservationNumber, schedule]) => {
+            const sortDate = new Date(schedule.start);
+            items.push({
+              kind: "reservation",
+              sortDate: isNaN(sortDate.getTime()) ? new Date(8640000000000000) : sortDate,
+              reservationNumber,
+              schedule,
+            });
+          });
+
+          (visits || []).forEach((visit) => {
+            const sortDate = getVisitSortDate(visit) || new Date(8640000000000000);
+            items.push({
+              kind: "manual",
+              sortDate,
+              visit,
+            });
+          });
+
+          if (items.length === 0) {
+            upcomingDiv.innerHTML = "<div>No upcoming items</div>";
             return;
           }
 
-          const now = new Date();
-          const visitsHtml = visits
-            .map((visit) => {
-              const isActive = visit.modeChanges.some(
-                (change) =>
-                  new Date(change.time) <= now && new Date(change.time) >= now
-              );
-
-              return `
-                <div class="reservation-item ${isActive ? "active" : ""}">
-                  <div><strong>Name:</strong> ${visit.name}</div>
-                  ${
-                    visit.phone
-                      ? `<div><strong>Phone:</strong> ${visit.phone}</div>`
-                      : ""
-                  }
-                  <div><strong>Mode Changes:</strong></div>
-                  <ul>
-                    ${visit.modeChanges
-                      .map(
-                        (change) => `
-                      <li>${formatDate(change.time)} - ${change.mode
-                          .replace("_", " ")
-                          .replace(/\b\w/g, (l) => l.toUpperCase())}</li>
-                    `
-                      )
-                      .join("")}
-                  </ul>
-                  <button class="delete-btn" onclick="deleteVisit('${
-                    visit.id
-                  }')">Delete</button>
-                </div>
-              `;
+          items.sort((a, b) => a.sortDate - b.sortDate);
+          upcomingDiv.innerHTML = items
+            .map((item) => {
+              if (item.kind === "manual") return renderVisitItem(item.visit);
+              return renderScheduleItem(item.reservationNumber, item.schedule);
             })
             .join("");
-          visitsDiv.innerHTML = visitsHtml;
         } catch (error) {
-          console.log("Error loading visits:", error);
-          alert("Failed to load visits");
+          console.log("Error loading upcoming:", error);
+          alert("Failed to load upcoming items");
         }
       }
 
@@ -1144,8 +1242,8 @@
             throw new Error("Failed to delete visit");
           }
 
-          // Refresh the visits list
-          await loadVisits();
+          // Refresh the upcoming list
+          await loadUpcoming();
         } catch (error) {
           console.error("Error deleting visit:", error);
           alert("Failed to delete visit");
@@ -1273,7 +1371,7 @@
               .appendChild(newInitialRemoveButton);
 
             // Refresh the visits list
-            await loadVisits();
+            await loadUpcoming();
           } catch (error) {
             console.error("Error scheduling visit:", error);
             alert("Failed to schedule visit");

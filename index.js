@@ -1031,6 +1031,7 @@ const getSchedules = async (firstRun) => {
         end: dateEnd.toISOString(),
         phoneNumber,
         reservationNumber: reservationNumber,
+        platform: events[i].platform || "airbnb",
       };
       if (arrivingSoonDate) {
         sched.arriving = arrivingSoonDate.toISOString();
@@ -1041,7 +1042,8 @@ const getSchedules = async (firstRun) => {
 
     if (
       schedules[reservationNumber].start !== dateStart.toISOString() ||
-      schedules[reservationNumber].end !== dateEnd.toISOString()
+      schedules[reservationNumber].end !== dateEnd.toISOString() ||
+      schedules[reservationNumber].platform !== (events[i].platform || "airbnb")
     ) {
       log.info(`Reservation ${reservationNumber} schedule changed!`);
       log.debug(
@@ -1064,6 +1066,7 @@ const getSchedules = async (firstRun) => {
         end: dateEnd.toISOString(),
         phoneNumber,
         reservationNumber: reservationNumber,
+        platform: events[i].platform || "airbnb",
       };
       if (arrivingSoonDate) {
         schedules[reservationNumber].arriving = arrivingSoonDate.toISOString();
@@ -1179,6 +1182,7 @@ app.get("/api/schedules", (req, res) => {
       phoneNumber: schedules[key].phoneNumber,
       reservationNumber: schedules[key].reservationNumber,
       arriving: schedules[key].arriving,
+      platform: schedules[key].platform,
     };
   }
   res.json(cleanSchedules);
